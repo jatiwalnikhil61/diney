@@ -1,0 +1,124 @@
+from uuid import UUID
+from typing import Optional
+from datetime import datetime, timezone, date
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, cast, Date
+from sqlalchemy.orm import selectinload
+
+from core.database import get_db
+from models import Order, OrderItem, OrderStatus, ORDER_STATUS_TRANSITIONS, Table
+from schemas import OrderResponse, OrderStatusUpdate
+
+router = APIRouter(prefix="/api/orders", tags=["Orders (Staff)"])
+
+
+def _order_to_emit_payload(order: Order, table_number: str) -> dict:
+    return {
+        "order_id": str(order.id),
+        "status": order.status.value,
+        "table_number": table_number,
+        "total_amount": str(order.total_amount) if order.total_amount else None,
+        "customer_note": order.customer_note,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "items": [
+            {
+                "name": item.item_name,
+                "quantity": item.quantity,
+                "customization": item.customization,
+            }
+            for item in order.items
+        ],
+    }
+
+
+def _order_with_table(order: Order) -> dict:
+    """Convert an Order to a dict, injecting table_number from the relationship."""
+    data = OrderResponse.model_validate(order).model_dump()
+    data["table_number"] = order.table.table_number if order.table else None
+    return data
+
+
+@router.get("", response_model=list[OrderResponse])
+async def list_orders(
+    restaurant_id: UUID = Query(...),
+    status: Optional[OrderStatus] = Query(None),
+    date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.table))
+        .where(Order.restaurant_id == restaurant_id)
+        .order_by(Order.created_at.desc())
+    )
+    if status:
+        stmt = stmt.where(Order.status == status)
+    if date:
+        filter_date = datetime.strptime(date, "%Y-%m-%d").date()
+        stmt = stmt.where(cast(Order.created_at, Date) == filter_date)
+    result = await db.execute(stmt)
+    orders = result.scalars().unique().all()
+    return [_order_with_table(o) for o in orders]
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
+async def get_order(order_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.table))
+        .where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    return _order_with_table(order)
+
+
+@router.patch("/{order_id}/status", response_model=OrderResponse)
+async def update_order_status(
+    order_id: UUID,
+    data: OrderStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.table))
+        .where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+
+    current_status = order.status
+    new_status = data.status
+
+    # Validate transition
+    allowed_next = ORDER_STATUS_TRANSITIONS.get(current_status)
+    if allowed_next != new_status:
+        raise HTTPException(
+            400,
+            f"Invalid status transition: {current_status.value} → {new_status.value}. "
+            f"Allowed: {current_status.value} → {allowed_next.value if allowed_next else 'none (terminal state)'}",
+        )
+
+    order.status = new_status
+    order.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(order, ["items", "table"])
+
+    # Emit Socket.IO event
+    try:
+        from main import sio
+        table_number = order.table.table_number if order.table else "Unknown"
+
+        payload = _order_to_emit_payload(order, table_number)
+        await sio.emit(
+            "order:updated",
+            payload,
+            room=f"restaurant_{order.restaurant_id}",
+        )
+    except Exception as e:
+        print(f"Socket.IO emit error: {e}")
+
+    return _order_with_table(order)
