@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
-import api, { RESTAURANT_ID } from '../services/api'
+import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
 import useSocket from '../hooks/useSocket'
 import StatusBadge from '../components/StatusBadge'
+import DashboardNavbar from '../components/DashboardNavbar'
 
 export default function OwnerDashboard() {
     const [orders, setOrders] = useState([])
     const [filter, setFilter] = useState('all')
     const { socket, isConnected } = useSocket()
+    const { effectiveRestaurantId } = useAuth()
 
     const fetchOrders = async () => {
         try {
             const today = new Date().toISOString().split('T')[0]
             const res = await api.get('/api/orders', {
-                params: { restaurant_id: RESTAURANT_ID, date: today },
+                params: { restaurant_id: effectiveRestaurantId, date: today },
             })
             setOrders(res.data)
         } catch (err) {
@@ -75,7 +78,8 @@ export default function OwnerDashboard() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+            <DashboardNavbar />
+            <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between">
                 <h1 className="text-xl font-bold text-gray-900">📊 Owner Dashboard</h1>
                 <span className={`text-xs px-2 py-1 rounded-full ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                     {isConnected ? '● Live' : '● Disconnected'}

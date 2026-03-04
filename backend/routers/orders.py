@@ -7,7 +7,8 @@ from sqlalchemy import select, cast, Date
 from sqlalchemy.orm import selectinload
 
 from core.database import get_db
-from models import Order, OrderItem, OrderStatus, ORDER_STATUS_TRANSITIONS, Table
+from core.dependencies import get_current_user, get_restaurant_id
+from models import Order, OrderItem, OrderStatus, ORDER_STATUS_TRANSITIONS, Table, User
 from schemas import OrderResponse, OrderStatusUpdate
 
 router = APIRouter(prefix="/api/orders", tags=["Orders (Staff)"])
@@ -41,7 +42,7 @@ def _order_with_table(order: Order) -> dict:
 
 @router.get("", response_model=list[OrderResponse])
 async def list_orders(
-    restaurant_id: UUID = Query(...),
+    restaurant_id: UUID = Depends(get_restaurant_id),
     status: Optional[OrderStatus] = Query(None),
     date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db),
@@ -63,7 +64,11 @@ async def list_orders(
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
-async def get_order(order_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_order(
+    order_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(Order)
         .options(selectinload(Order.items), selectinload(Order.table))
@@ -79,6 +84,7 @@ async def get_order(order_id: UUID, db: AsyncSession = Depends(get_db)):
 async def update_order_status(
     order_id: UUID,
     data: OrderStatusUpdate,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

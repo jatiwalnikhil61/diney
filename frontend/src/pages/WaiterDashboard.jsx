@@ -1,17 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
-import api, { RESTAURANT_ID } from '../services/api'
+import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
 import useSocket from '../hooks/useSocket'
 import OrderCard from '../components/OrderCard'
 
+const DING_SOUND = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGczGjqIr9TJdUwvQG2Yvb6CUjQ4YJGztIxdRTtfkK+0i19GPGCQr7SLX0Y8YJCvtItfRjxgkK+0i19GO1+Pr7OMYEU+YJa3wpVmQD5gmbfCl2dEQGGbucifakg/YJm5xZdmQD5gmbnFl2Y/PV+YuMOUZEA+YZq5xJVlQD9imrrElWVAP2KausKTY0BAY5u7wpNjQEBjm7u/kGBBQmWdvL+QYEFCZZS1uIxeQ0NlnLzAkWFBQmWdvMCRYUFCZZ28v5BgQUJlnby/kGBBQmWcvL6PX0FDZZ28v5BgQkNmnry+'
+const playDing = () => {
+    try { new Audio(DING_SOUND).play() } catch { }
+}
+
 export default function WaiterDashboard() {
     const [orders, setOrders] = useState([])
+    const [highlightId, setHighlightId] = useState(null)
     const { socket, isConnected } = useSocket()
+    const { effectiveRestaurantId } = useAuth()
+    const ordersRef = useRef(orders)
+    ordersRef.current = orders
 
     const fetchOrders = async () => {
         try {
             const res = await api.get('/api/orders', {
-                params: { restaurant_id: RESTAURANT_ID },
+                params: { restaurant_id: effectiveRestaurantId },
             })
             setOrders(res.data.filter(o => ['READY', 'PICKED_UP'].includes(o.status)))
         } catch (err) {
@@ -29,9 +39,8 @@ export default function WaiterDashboard() {
                 let updated = prev.map(o =>
                     o.id === data.order_id ? { ...o, status: data.status } : o
                 )
-                // If a new READY order arrived that we don't have, add it
                 if (data.status === 'READY' && !prev.find(o => o.id === data.order_id)) {
-                    updated = [{
+                    const newOrder = {
                         id: data.order_id,
                         status: data.status,
                         table_number: data.table_number,
@@ -39,17 +48,19 @@ export default function WaiterDashboard() {
                         customer_note: data.customer_note,
                         created_at: data.created_at,
                         items: data.items?.map(i => ({ item_name: i.name, quantity: i.quantity, customization: i.customization })) || [],
-                    }, ...updated]
+                    }
+                    updated = [newOrder, ...updated]
+                    setHighlightId(data.order_id)
+                    setTimeout(() => setHighlightId(null), 2000)
+                    playDing()
                     toast(`Order ready for ${data.table_number}!`, { icon: '🔔' })
 
-                    // Browser notification
                     if (Notification.permission === 'granted') {
                         new Notification('Order Ready!', { body: `Table ${data.table_number} is ready for pickup` })
                     } else if (Notification.permission !== 'denied') {
                         Notification.requestPermission()
                     }
                 }
-                // Filter to only show READY and PICKED_UP
                 return updated.filter(o => ['READY', 'PICKED_UP'].includes(o.status))
             })
         }
@@ -69,74 +80,61 @@ export default function WaiterDashboard() {
     const readyOrders = orders.filter(o => o.status === 'READY')
     const pickedUp = orders.filter(o => o.status === 'PICKED_UP')
 
-    if (readyOrders.length === 0 && pickedUp.length === 0) {
-        return (
-            <div className="min-h-screen bg-gray-50">
-                <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                    <h1 className="text-xl font-bold text-gray-900">🍽️ Waiter Dashboard</h1>
-                    <span className={`text-xs px-2 py-1 rounded-full ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {isConnected ? '● Live' : '● Disconnected'}
-                    </span>
-                </div>
-                <div className="flex flex-col items-center justify-center h-[70vh] text-center">
-                    <p className="text-5xl mb-4">🎉</p>
-                    <p className="text-lg font-semibold text-gray-900">All clear!</p>
-                    <p className="text-sm text-gray-500">No pending orders.</p>
-                </div>
-            </div>
-        )
-    }
-
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                <h1 className="text-xl font-bold text-gray-900">🍽️ Waiter Dashboard</h1>
-                <span className={`text-xs px-2 py-1 rounded-full ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {isConnected ? '● Live' : '● Disconnected'}
+        <div>
+            <div className="page-header-bar">
+                <h1 className="page-title">Waiter</h1>
+                <span className={`live-pill${isConnected ? '' : ' offline'}`}>
+                    {isConnected ? 'Live' : 'Disconnected'}
                 </span>
             </div>
 
-            <div className="p-4 md:p-6 space-y-6">
-                {/* Ready for Pickup */}
-                {readyOrders.length > 0 && (
-                    <section>
-                        <h2 className="text-base font-bold text-gray-900 mb-3">
-                            🔔 Ready for Pickup
-                            <span className="ml-2 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">{readyOrders.length}</span>
-                        </h2>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {readyOrders.map(order => (
-                                <OrderCard
-                                    key={order.id}
-                                    order={order}
-                                    actionLabel="Mark Picked Up"
-                                    onAction={(o) => updateStatus(o, 'PICKED_UP')}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                )}
+            {readyOrders.length === 0 && pickedUp.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
+                    <p style={{ fontFamily: 'Playfair Display, serif', fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>All clear!</p>
+                    <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>No pending orders right now.</p>
+                </div>
+            ) : (
+                <div style={{ padding: '20px 28px 40px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+                    {readyOrders.length > 0 && (
+                        <section>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                                <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    Ready for Pickup
+                                </h2>
+                                <span className="badge badge-ready">{readyOrders.length}</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                                {readyOrders.map(order => (
+                                    <OrderCard key={order.id} order={order}
+                                        actionLabel="Mark Picked Up"
+                                        onAction={(o) => updateStatus(o, 'PICKED_UP')}
+                                        highlight={highlightId === order.id} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
 
-                {/* In Progress */}
-                {pickedUp.length > 0 && (
-                    <section>
-                        <h2 className="text-base font-bold text-gray-900 mb-3">
-                            In Progress
-                            <span className="ml-2 text-xs font-normal text-gray-400">({pickedUp.length})</span>
-                        </h2>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {pickedUp.map(order => (
-                                <OrderCard
-                                    key={order.id}
-                                    order={order}
-                                    actionLabel="Mark Delivered ✓"
-                                    onAction={(o) => updateStatus(o, 'DELIVERED')}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                )}
-            </div>
+                    {pickedUp.length > 0 && (
+                        <section>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                                <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    In Progress
+                                </h2>
+                                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>({pickedUp.length})</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                                {pickedUp.map(order => (
+                                    <OrderCard key={order.id} order={order}
+                                        actionLabel="Mark Delivered"
+                                        onAction={(o) => updateStatus(o, 'DELIVERED')}
+                                        highlight={highlightId === order.id} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

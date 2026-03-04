@@ -51,9 +51,12 @@ async def seed():
         password_hash = bcrypt.hashpw("Diney@123".encode(), bcrypt.gensalt()).decode()
 
         users_data = [
-            {"name": "Owner User",  "email": "owner@diney.app",  "role": UserRole.OWNER},
-            {"name": "Chef User",   "email": "chef@diney.app",   "role": UserRole.CHEF},
-            {"name": "Waiter User", "email": "waiter@diney.app", "role": UserRole.WAITER},
+            {"name": "Owner User",  "email": "owner@diney.app",  "role": UserRole.OWNER,
+             "can_access_kitchen": True, "can_access_waiter": True},
+            {"name": "Chef User",   "email": "chef@diney.app",   "role": UserRole.CHEF,
+             "can_access_kitchen": False, "can_access_waiter": False},
+            {"name": "Waiter User", "email": "waiter@diney.app", "role": UserRole.WAITER,
+             "can_access_kitchen": False, "can_access_waiter": False},
         ]
 
         for u in users_data:
@@ -64,7 +67,21 @@ async def seed():
                 password_hash=password_hash,
                 phone=seed_phone,
                 role=u["role"],
+                can_access_kitchen=u["can_access_kitchen"],
+                can_access_waiter=u["can_access_waiter"],
             ))
+
+        # ─── 2b. Super Admin (no restaurant) ──────────────
+        db.add(User(
+            restaurant_id=None,
+            name="Super Admin",
+            email="admin@diney.app",
+            password_hash=password_hash,
+            phone=seed_phone,
+            role=UserRole.SUPER_ADMIN,
+            can_access_kitchen=True,
+            can_access_waiter=True,
+        ))
 
         # ─── 3. Menu Categories ────────────────────────────
         categories = {}
@@ -129,10 +146,11 @@ async def seed():
         print("═" * 50)
         print(f"  ✓ Restaurant created: {restaurant.name}")
         print(f"    ID: {restaurant.id}")
-        print(f"  ✓ 3 users created (password: Diney@123)")
-        print(f"    owner@diney.app  | OWNER")
+        print(f"  ✓ Staff users (password: Diney@123)")
+        print(f"    owner@diney.app  | OWNER   (kitchen ✓, waiter ✓)")
         print(f"    chef@diney.app   | CHEF")
         print(f"    waiter@diney.app | WAITER")
+        print(f"  ✓ Super admin: admin@diney.app / Diney@123")
         print(f"  ✓ 3 categories, 8 items created")
         print(f"  ✓ Tables created:")
         for t in tables:

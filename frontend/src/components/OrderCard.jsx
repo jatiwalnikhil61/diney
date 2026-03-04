@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import StatusBadge from './StatusBadge'
+import { useTheme } from '../context/ThemeContext'
 
 function timeAgo(dateStr) {
     const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -11,6 +12,7 @@ function timeAgo(dateStr) {
 export default function OrderCard({ order, actionLabel, onAction, highlight }) {
     const [elapsed, setElapsed] = useState(timeAgo(order.created_at))
     const isOld = (Date.now() - new Date(order.created_at).getTime()) > 15 * 60 * 1000
+    const { isDark } = useTheme()
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -20,37 +22,44 @@ export default function OrderCard({ order, actionLabel, onAction, highlight }) {
     }, [order.created_at])
 
     return (
-        <div className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-500 ${highlight ? 'ring-2 ring-amber-400 bg-amber-50' : ''}`}>
-            <div className="flex items-center justify-between mb-2">
-                <span className="text-lg font-bold text-gray-900">{order.table_number}</span>
+        <div className="order-card" style={highlight ? {
+            outline: '2px solid var(--saffron)',
+            background: 'var(--saffron-light)',
+        } : {}}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {order.table_number}
+                </span>
                 <StatusBadge status={order.status} />
             </div>
 
-            <p className={`text-xs mb-2 ${isOld ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+            <p style={{ fontSize: 12, marginBottom: 8, color: isOld ? (isDark ? '#FCA5A5' : '#DC2626') : 'var(--text-muted)', fontWeight: isOld ? 600 : 400 }}>
                 {elapsed}
             </p>
 
-            <ul className="text-sm text-gray-700 mb-2 space-y-0.5">
+            <ul style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8, listStyle: 'none', padding: 0 }}>
                 {order.items?.map((item, i) => (
-                    <li key={i}>{item.quantity}× {item.name || item.item_name}</li>
+                    <li key={i} style={{ padding: '2px 0' }}>{item.quantity}× {item.name || item.item_name}</li>
                 ))}
             </ul>
 
             {order.customer_note && (
-                <p className="text-xs italic text-gray-500 mb-3 border-l-2 border-gray-300 pl-2">
+                <p style={{
+                    fontSize: 12, fontStyle: 'italic', color: 'var(--text-muted)',
+                    marginBottom: 12, borderLeft: '2px solid var(--border)', paddingLeft: 8,
+                }}>
                     {order.customer_note}
                 </p>
             )}
 
             {order.total_amount && (
-                <p className="text-sm font-semibold text-gray-800 mb-3">₹{order.total_amount}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>
+                    ₹{order.total_amount}
+                </p>
             )}
 
             {actionLabel && (
-                <button
-                    onClick={() => onAction(order)}
-                    className="w-full py-2 px-4 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 transition-colors cursor-pointer"
-                >
+                <button onClick={() => onAction(order)} className="btn btn-primary" style={{ width: '100%' }}>
                     {actionLabel}
                 </button>
             )}

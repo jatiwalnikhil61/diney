@@ -100,8 +100,28 @@ export default function CustomerMenu() {
 
     if (!menu) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="animate-pulse text-gray-400">Loading menu...</div>
+            <div className="min-h-screen bg-gray-50 animate-pulse">
+                <div className="bg-white border-b border-gray-100 px-5 pt-6 pb-4">
+                    <div className="h-7 bg-gray-200 rounded w-40 mb-2" />
+                    <div className="h-5 bg-gray-200 rounded w-20" />
+                </div>
+                <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2">
+                    {[1, 2, 3].map(i => <div key={i} className="h-8 bg-gray-200 rounded-full w-20" />)}
+                </div>
+                <div className="px-4 py-4 space-y-3">
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} className="bg-white rounded-xl p-4 border border-gray-100">
+                            <div className="flex items-start justify-between">
+                                <div className="flex-1 space-y-2 pr-3">
+                                    <div className="h-4 bg-gray-200 rounded w-32" />
+                                    <div className="h-3 bg-gray-200 rounded w-48" />
+                                    <div className="h-4 bg-gray-200 rounded w-16" />
+                                </div>
+                                <div className="h-8 bg-gray-200 rounded-lg w-16" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         )
     }
@@ -142,10 +162,10 @@ export default function CustomerMenu() {
                                 const qty = getCartQty(item.id)
                                 return (
                                     <div key={item.id} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1 pr-3">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center ${item.is_veg ? 'border-green-600' : 'border-red-600'}`}>
+                                                    <span className={`w-3.5 h-3.5 rounded-sm border-2 shrink-0 flex items-center justify-center ${item.is_veg ? 'border-green-600' : 'border-red-600'}`}>
                                                         <span className={`w-1.5 h-1.5 rounded-full ${item.is_veg ? 'bg-green-600' : 'bg-red-600'}`} />
                                                     </span>
                                                     <span className="font-semibold text-gray-900 text-sm">{item.name}</span>
@@ -156,7 +176,14 @@ export default function CustomerMenu() {
                                                 <p className="text-sm font-semibold text-gray-800">₹{item.price}</p>
                                             </div>
 
-                                            <div className="shrink-0">
+                                            <div className="shrink-0 flex flex-col items-end gap-2">
+                                                {item.photo_url && (
+                                                    <img
+                                                        src={item.photo_url}
+                                                        alt={item.name}
+                                                        className="w-20 h-20 rounded-lg object-cover border border-gray-100"
+                                                    />
+                                                )}
                                                 {qty === 0 ? (
                                                     <button
                                                         onClick={() => updateCart(item.id, 1)}

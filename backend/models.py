@@ -19,6 +19,7 @@ class UserRole(str, enum.Enum):
     OWNER = "OWNER"
     CHEF = "CHEF"
     WAITER = "WAITER"
+    SUPER_ADMIN = "SUPER_ADMIN"
 
 
 class OrderStatus(str, enum.Enum):
@@ -51,6 +52,7 @@ class Restaurant(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     phone = Column(String, nullable=True)
+    logo_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
@@ -65,16 +67,32 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    restaurant_id = Column(UUID(as_uuid=True), ForeignKey("restaurants.id"), nullable=False)
+    restaurant_id = Column(UUID(as_uuid=True), ForeignKey("restaurants.id"), nullable=True)  # nullable for SUPER_ADMIN
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     phone = Column(String, nullable=False)
-    role = Column(SAEnum(UserRole, name="user_role", create_constraint=True), nullable=False)
+    role = Column(SAEnum(UserRole, name="user_role", create_constraint=False), nullable=False)
     is_active = Column(Boolean, default=True)
+    can_access_kitchen = Column(Boolean, default=False)
+    can_access_waiter = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     restaurant = relationship("Restaurant", back_populates="users")
+    otp_logs = relationship("OTPLog", back_populates="user", cascade="all, delete-orphan")
+
+
+class OTPLog(Base):
+    __tablename__ = "otp_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    otp = Column(String(6), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship("User", back_populates="otp_logs")
 
 
 class MenuCategory(Base):

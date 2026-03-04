@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     SEED_PHONE: str = "+91XXXXXXXXXX"
 
     FRONTEND_URL: str = "http://localhost:5173"
+    BACKEND_URL: str = "http://localhost:8000"
+
+    # AI providers
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-5"
+    AI_PRIMARY_PROVIDER: str = "gemini"
+    AI_FALLBACK_PROVIDER: str = "claude"
 
     class Config:
         env_file = ".env"

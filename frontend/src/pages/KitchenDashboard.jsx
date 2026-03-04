@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
-import api, { RESTAURANT_ID } from '../services/api'
+import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import useSocket from '../hooks/useSocket'
 import OrderCard from '../components/OrderCard'
 
@@ -10,24 +12,20 @@ const playDing = () => {
     try { new Audio(DING_SOUND).play() } catch { }
 }
 
-const STATUS_MAP = {
-    PLACED: 'new',
-    CONFIRMED: 'new',
-    PREPARING: 'preparing',
-    READY: 'ready',
-}
 
 export default function KitchenDashboard() {
     const [orders, setOrders] = useState([])
     const [highlightId, setHighlightId] = useState(null)
     const { socket, isConnected } = useSocket()
+    const { effectiveRestaurantId } = useAuth()
+    const { isDark } = useTheme()
     const ordersRef = useRef(orders)
     ordersRef.current = orders
 
     const fetchOrders = async () => {
         try {
             const res = await api.get('/api/orders', {
-                params: { restaurant_id: RESTAURANT_ID },
+                params: { restaurant_id: effectiveRestaurantId },
             })
             // Only show active orders for kitchen
             setOrders(res.data.filter(o => ['PLACED', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status)))
@@ -90,59 +88,49 @@ export default function KitchenDashboard() {
     const preparing = orders.filter(o => o.status === 'PREPARING')
     const ready = orders.filter(o => o.status === 'READY')
 
-    const Column = ({ title, items, actionLabel, onAction }) => (
-        <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold text-gray-900 mb-3 px-1">{title}
-                <span className="ml-2 text-xs font-normal text-gray-400">({items.length})</span>
-            </h2>
-            <div className="space-y-3">
-                {items.length === 0 && (
-                    <p className="text-sm text-gray-400 text-center py-8">No orders</p>
-                )}
-                {items.map(order => (
-                    <OrderCard
-                        key={order.id}
-                        order={order}
-                        actionLabel={actionLabel}
-                        onAction={onAction}
-                        highlight={highlightId === order.id}
-                    />
-                ))}
-            </div>
-        </div>
-    )
+    const COLUMNS = [
+        { title: 'New', count: newOrders.length, items: newOrders, actionLabel: 'Start Preparing', onAction: (o) => updateStatus(o, o.status === 'PLACED' ? 'CONFIRMED' : 'PREPARING'), accent: '#2563EB' },
+        { title: 'Preparing', count: preparing.length, items: preparing, actionLabel: 'Mark Ready', onAction: (o) => updateStatus(o, 'READY'), accent: '#D97706' },
+        { title: 'Ready', count: ready.length, items: ready, actionLabel: null, onAction: () => { }, accent: '#059669' },
+    ]
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                <h1 className="text-xl font-bold text-gray-900">👨‍🍳 Kitchen Dashboard</h1>
-                <span className={`text-xs px-2 py-1 rounded-full ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {isConnected ? '● Live' : '● Disconnected'}
+        <div>
+            <div className="page-header-bar">
+                <h1 className="page-title">Kitchen</h1>
+                <span className={`live-pill${isConnected ? '' : ' offline'}`}>
+                    {isConnected ? 'Live' : 'Disconnected'}
                 </span>
             </div>
 
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6">
-                <Column
-                    title="🆕 New"
-                    items={newOrders}
-                    actionLabel="Start Preparing"
-                    onAction={(order) => {
-                        const next = order.status === 'PLACED' ? 'CONFIRMED' : 'PREPARING'
-                        updateStatus(order, next)
-                    }}
-                />
-                <Column
-                    title="👨‍🍳 Preparing"
-                    items={preparing}
-                    actionLabel="Mark Ready ✓"
-                    onAction={(order) => updateStatus(order, 'READY')}
-                />
-                <Column
-                    title="✅ Ready"
-                    items={ready}
-                    actionLabel={null}
-                    onAction={() => { }}
-                />
+            <div style={{ padding: '20px 28px 40px', display: 'flex', gap: 16, overflowX: 'auto' }}>
+                {COLUMNS.map(col => (
+                    <div key={col.title} style={{ flex: 1, minWidth: 260 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {col.title}
+                            </h2>
+                            <span style={{
+                                fontSize: 12, fontWeight: 700, padding: '1px 8px', borderRadius: 20,
+                                background: col.accent + (isDark ? '30' : '18'), color: col.accent,
+                            }}>{col.count}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {col.items.length === 0 && (
+                                <p style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>No orders</p>
+                            )}
+                            {col.items.map(order => (
+                                <OrderCard
+                                    key={order.id}
+                                    order={order}
+                                    actionLabel={col.actionLabel}
+                                    onAction={col.onAction}
+                                    highlight={highlightId === order.id}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     )

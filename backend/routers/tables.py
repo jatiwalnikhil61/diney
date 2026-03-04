@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from core.database import get_db
-from models import Table
+from core.dependencies import get_current_user, get_restaurant_id
+from models import Table, User
 from schemas import TableCreate, TableResponse
 
 router = APIRouter(prefix="/api/tables", tags=["Tables"])
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/api/tables", tags=["Tables"])
 
 @router.get("", response_model=list[TableResponse])
 async def list_tables(
-    restaurant_id: UUID = Query(...),
+    restaurant_id: UUID = Depends(get_restaurant_id),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -23,7 +24,11 @@ async def list_tables(
 
 
 @router.post("", response_model=TableResponse, status_code=201)
-async def create_table(data: TableCreate, db: AsyncSession = Depends(get_db)):
+async def create_table(
+    data: TableCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     table = Table(
         restaurant_id=data.restaurant_id,
         table_number=data.table_number,
@@ -36,7 +41,11 @@ async def create_table(data: TableCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{table_id}", status_code=204)
-async def delete_table(table_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_table(
+    table_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(select(Table).where(Table.id == table_id))
     table = result.scalar_one_or_none()
     if not table:
@@ -46,7 +55,11 @@ async def delete_table(table_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{table_id}/regenerate-qr", response_model=TableResponse)
-async def regenerate_qr(table_id: UUID, db: AsyncSession = Depends(get_db)):
+async def regenerate_qr(
+    table_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(select(Table).where(Table.id == table_id))
     table = result.scalar_one_or_none()
     if not table:

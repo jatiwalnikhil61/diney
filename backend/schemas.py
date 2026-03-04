@@ -26,6 +26,7 @@ class RestaurantResponse(BaseModel):
     name: str
     email: str
     phone: Optional[str]
+    logo_url: Optional[str]
     is_active: bool
     created_at: datetime
 
