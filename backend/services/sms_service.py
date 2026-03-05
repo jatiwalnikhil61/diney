@@ -17,15 +17,15 @@ async def send_sms(phone: str, message: str) -> bool:
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(
-                f"{settings.SMSBRIDGE_HOST}/api/v1/send",
+                f"{settings.SMSBRIDGE_HOST}/sms/send",
                 headers={
                     "Content-Type": "application/json",
-                    "X-API-Key": settings.SMSBRIDGE_API_KEY,
+                    "x-api-key": settings.SMSBRIDGE_API_KEY,
                     "ngrok-skip-browser-warning": "true",
                 },
                 json={
-                    "deviceId": settings.SMSBRIDGE_DEVICE_ID,
-                    "phoneNumber": phone,
+                    "device_id": settings.SMSBRIDGE_DEVICE_ID,
+                    "to": phone,
                     "message": message,
                 },
             )
