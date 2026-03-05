@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from core.database import get_db
 from core.dependencies import get_current_user, get_restaurant_id
-from models import Order, OrderItem, OrderStatus, Table, User
+from models import Order, OrderItem, OrderStatus, ProcessConfig, Table, User
 from schemas import OrderResponse, OrderStatusUpdate
 from services.order_flow import get_valid_transitions
 
@@ -100,8 +100,17 @@ async def update_order_status(
     current_status = order.status
     new_status = data.status
 
-    # Use process_snapshot-aware transition logic
-    valid_next = get_valid_transitions(current_status, order.process_snapshot)
+    # Use live restaurant config so config changes apply to all existing orders
+    config_result = await db.execute(
+        select(ProcessConfig).where(ProcessConfig.restaurant_id == order.restaurant_id)
+    )
+    config = config_result.scalar_one_or_none()
+    live_snapshot = {
+        "kitchen_module": config.kitchen_module if config else True,
+        "waiter_module": config.waiter_module if config else True,
+    }
+
+    valid_next = get_valid_transitions(current_status, live_snapshot)
     if new_status not in valid_next:
         valid_str = ", ".join(s.value for s in valid_next) if valid_next else "none (terminal state)"
         raise HTTPException(
