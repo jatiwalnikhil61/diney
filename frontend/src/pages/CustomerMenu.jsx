@@ -14,6 +14,7 @@ export default function CustomerMenu() {
     const [drawerOpen, setDrawerOpen] = useState(false)
     const [customerNote, setCustomerNote] = useState('')
     const [isPlacing, setIsPlacing] = useState(false)
+    const [orderPlaced, setOrderPlaced] = useState(null) // { orderId, showStatus }
     const sectionRefs = useRef({})
 
     useEffect(() => {
@@ -78,12 +79,66 @@ export default function CustomerMenu() {
             }
             const res = await api.post(`/api/public/orders/${qrToken}`, payload)
             toast.success('Order placed!')
-            navigate(`/menu/${qrToken}/order/${res.data.order_id}`)
+
+            // If customer status tracking is enabled, navigate to status page
+            if (res.data.show_status_page !== false) {
+                navigate(`/menu/${qrToken}/order/${res.data.order_id}`)
+            } else {
+                // Show inline confirmation (no status tracking)
+                setOrderPlaced({
+                    orderId: res.data.order_id,
+                    estimatedMinutes: res.data.estimated_minutes,
+                })
+                setCart([])
+                setDrawerOpen(false)
+            }
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Failed to place order')
         } finally {
             setIsPlacing(false)
         }
+    }
+
+    // Order placed inline confirmation (when status tracking is OFF)
+    if (orderPlaced) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 32,
+                textAlign: 'center',
+                background: '#fff',
+            }}>
+                <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+                    Order Confirmed!
+                </h1>
+                <p style={{ fontSize: 16, color: '#6b7280', marginBottom: 8 }}>
+                    Your order has been placed successfully.
+                </p>
+                <p style={{ fontSize: 14, color: '#9ca3af', marginBottom: 24 }}>
+                    Estimated time: ~{orderPlaced.estimatedMinutes || 10} minutes
+                </p>
+                <button
+                    onClick={() => setOrderPlaced(null)}
+                    style={{
+                        padding: '12px 32px',
+                        background: '#111827',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 12,
+                        fontSize: 15,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                    }}
+                >
+                    Order More
+                </button>
+            </div>
+        )
     }
 
     if (error) {
@@ -143,8 +198,8 @@ export default function CustomerMenu() {
                         key={cat.id}
                         onClick={() => scrollToCategory(cat.id)}
                         className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${activeCategory === cat.id
-                                ? 'bg-gray-900 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
                         {cat.name}

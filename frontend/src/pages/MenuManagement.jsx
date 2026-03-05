@@ -240,7 +240,7 @@ export default function MenuManagement() {
     // ─── RENDER ───────────────────────────────────────
     return (
         <div>
-            <div style={{ display: 'flex', height: 'calc(100vh - 57px)' }}>
+            <div style={{ display: 'flex', height: '100vh' }}>
                 {/* ─── Left: Categories ─────────────────── */}
                 <div style={{
                     width: 240, borderRight: '1px solid var(--stone-200)',

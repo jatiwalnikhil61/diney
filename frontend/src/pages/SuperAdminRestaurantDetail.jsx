@@ -11,6 +11,8 @@ export default function SuperAdminRestaurantDetail() {
     const [loading, setLoading] = useState(true)
     const [toggleLoading, setToggleLoading] = useState({})
     const [statusLoading, setStatusLoading] = useState(false)
+    const [config, setConfig] = useState(null)
+    const [configLoading, setConfigLoading] = useState({})
     const { isDark } = useTheme()
 
     const fetchDetail = useCallback(async () => {
@@ -25,7 +27,14 @@ export default function SuperAdminRestaurantDetail() {
         }
     }, [id])
 
-    useEffect(() => { fetchDetail() }, [fetchDetail])
+    useEffect(() => { fetchDetail(); fetchConfig() }, [fetchDetail])
+
+    const fetchConfig = async () => {
+        try {
+            const res = await api.get(`/api/superadmin/restaurants/${id}/config`)
+            setConfig(res.data)
+        } catch { /* auto-create will handle */ }
+    }
 
     const handleTogglePermission = async (field, value) => {
         setToggleLoading(prev => ({ ...prev, [field]: true }))
@@ -184,6 +193,64 @@ export default function SuperAdminRestaurantDetail() {
                         <p style={{ fontSize: 12, color: '#d97706', marginTop: 8 }}>⚠ Permission changes take effect on the owner's next login</p>
                     </div>
                 </div>
+
+                {/* Section 2b: Module Configuration */}
+                {config && (
+                    <div className="card">
+                        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--stone-700)', marginBottom: 12 }}>Module Configuration</h2>
+                        <div style={{ borderTop: '1px solid var(--stone-100)', paddingTop: 12 }}>
+                            {[
+                                { key: 'kitchen_module', label: 'Kitchen Module', helper: 'Enables kitchen dashboard and order flow' },
+                                { key: 'waiter_module', label: 'Waiter Module', helper: 'Enables waiter notifications and delivery flow' },
+                                { key: 'owner_dashboard', label: 'Owner Dashboard', helper: 'Analytics and overview dashboard for owner' },
+                                { key: 'customer_status_tracking', label: 'Customer Status Tracking', helper: 'Customers can track their order status' },
+                                { key: 'menu_management', label: 'Menu Management', helper: 'Owner can create and edit menu items' },
+                                { key: 'staff_management', label: 'Staff Management', helper: 'Owner can add and manage staff' },
+                            ].map(mod => (
+                                <Toggle
+                                    key={mod.key}
+                                    checked={config[mod.key]}
+                                    isLoading={!!configLoading[mod.key]}
+                                    onChange={async v => {
+                                        setConfigLoading(prev => ({ ...prev, [mod.key]: true }))
+                                        try {
+                                            const res = await api.patch(`/api/superadmin/restaurants/${id}/config`, { [mod.key]: v })
+                                            setConfig(res.data)
+                                            toast.success(`${mod.label} ${v ? 'enabled' : 'disabled'}`)
+                                        } catch {
+                                            toast.error('Failed to update module')
+                                        } finally {
+                                            setConfigLoading(prev => ({ ...prev, [mod.key]: false }))
+                                        }
+                                    }}
+                                    label={mod.label}
+                                    helper={mod.helper}
+                                />
+                            ))}
+                            <div style={{ borderTop: '1px solid var(--stone-100)', paddingTop: 12, marginTop: 8 }}>
+                                <Toggle
+                                    checked={config.owner_can_configure}
+                                    isLoading={!!configLoading.owner_can_configure}
+                                    onChange={async v => {
+                                        setConfigLoading(prev => ({ ...prev, owner_can_configure: true }))
+                                        try {
+                                            const res = await api.patch(`/api/superadmin/restaurants/${id}/config`, { owner_can_configure: v })
+                                            setConfig(res.data)
+                                            toast.success(`Owner self-config ${v ? 'enabled' : 'disabled'}`)
+                                        } catch {
+                                            toast.error('Failed to update')
+                                        } finally {
+                                            setConfigLoading(prev => ({ ...prev, owner_can_configure: false }))
+                                        }
+                                    }}
+                                    label="Owner Can Configure"
+                                    helper="Allow the owner to toggle modules themselves"
+                                />
+                            </div>
+                            <p style={{ fontSize: 12, color: '#d97706', marginTop: 8 }}>⚠ Module changes take effect on the owner's next login</p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Section 3: Staff */}
                 <div className="card" style={{ padding: 0 }}>

@@ -6,18 +6,28 @@ import { useAuth } from '../context/AuthContext'
 
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
 
-function getHomePath(role) {
+function getHomePath(role, modules) {
+    // modules = null means SUPER_ADMIN (full access)
+    const isOn = (mod) => !modules || modules[mod] !== false
+
     switch (role) {
-        case 'CHEF': return '/dashboard/kitchen'
-        case 'WAITER': return '/dashboard/waiter'
-        case 'SUPER_ADMIN': return '/superadmin'
-        default: return '/dashboard'
+        case 'CHEF':
+            return isOn('kitchen_module') ? '/dashboard/kitchen' : '/dashboard/orders'
+        case 'WAITER':
+            return isOn('waiter_module') ? '/dashboard/waiter' : '/dashboard/orders'
+        case 'SUPER_ADMIN':
+            return '/superadmin'
+        default: // OWNER — priority: dashboard → menu → staff → profile
+            if (isOn('owner_dashboard')) return '/dashboard'
+            if (isOn('menu_management')) return '/dashboard/menu'
+            if (isOn('staff_management')) return '/dashboard/staff'
+            return '/dashboard/profile'
     }
 }
 
 export default function Login() {
     const navigate = useNavigate()
-    const { login, isAuthenticated, role } = useAuth()
+    const { login, isAuthenticated, role, modules } = useAuth()
     const [step, setStep] = useState(1) // 1 = credentials, 2 = OTP
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -31,7 +41,7 @@ export default function Login() {
 
     // Redirect if already logged in
     useEffect(() => {
-        if (isAuthenticated) navigate(getHomePath(role), { replace: true })
+        if (isAuthenticated) navigate(getHomePath(role, modules), { replace: true })
     }, [isAuthenticated])
 
     // Resend countdown timer
@@ -103,7 +113,7 @@ export default function Login() {
             })
             login(res.data)
             toast.success('Welcome!')
-            navigate(getHomePath(res.data.role), { replace: true })
+            navigate(getHomePath(res.data.role, res.data.modules), { replace: true })
         } catch (err) {
             setError(err.response?.data?.detail || 'Verification failed')
             setOtp(['', '', '', '', '', ''])

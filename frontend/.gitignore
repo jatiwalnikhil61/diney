@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Local env files
+.env
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,33 +27,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-cat > .gitignore << 'EOF'
-# Python
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
-*.egg-info/
-
-# Environment variables — NEVER commit these
-.env
-*.env
-
-# Alembic (keep structure, ignore local db)
-*.db
-*.sqlite
-
-# Local file uploads
-backend/static/uploads/
-
-# Node
-node_modules/
-dist/
-.DS_Store
-
-# IDE
-.vscode/
-.idea/
-EOF

@@ -131,7 +131,7 @@ export default function SuperAdminRestaurants() {
                                     <th>Owner</th>
                                     <th>Staff</th>
                                     <th>Orders</th>
-                                    <th>Permissions</th>
+                                    <th>Owner Access</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>

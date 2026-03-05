@@ -13,6 +13,8 @@ export function AuthProvider({ children }) {
         canAccessKitchen: false,
         canAccessWaiter: false,
         selectedRestaurantId: null,
+        modules: null,           // null = full access (SUPER_ADMIN)
+        ownerCanConfigure: false,
     })
 
     const login = useCallback((data) => {
@@ -25,6 +27,8 @@ export function AuthProvider({ children }) {
             canAccessKitchen: data.can_access_kitchen,
             canAccessWaiter: data.can_access_waiter,
             selectedRestaurantId: data.restaurant_id,
+            modules: data.modules || null,
+            ownerCanConfigure: data.owner_can_configure || false,
         })
     }, [])
 
@@ -38,6 +42,8 @@ export function AuthProvider({ children }) {
             canAccessKitchen: false,
             canAccessWaiter: false,
             selectedRestaurantId: null,
+            modules: null,
+            ownerCanConfigure: false,
         })
     }, [])
 
@@ -47,6 +53,17 @@ export function AuthProvider({ children }) {
 
     const isAuthenticated = !!auth.token
 
+    // Module access check — SUPER_ADMIN (modules=null) always has access
+    const isModuleEnabled = useCallback((moduleName) => {
+        if (!auth.modules) return true  // null means full access (SUPER_ADMIN)
+        return !!auth.modules[moduleName]
+    }, [auth.modules])
+
+    // Refresh modules after config change (re-fetch from API)
+    const updateModules = useCallback((newModules) => {
+        setAuth(prev => ({ ...prev, modules: newModules }))
+    }, [])
+
     // The effective restaurant_id for API calls
     const effectiveRestaurantId = auth.selectedRestaurantId || auth.restaurantId
 
@@ -55,6 +72,8 @@ export function AuthProvider({ children }) {
             ...auth,
             isAuthenticated,
             effectiveRestaurantId,
+            isModuleEnabled,
+            updateModules,
             login,
             logout,
             setSelectedRestaurant,

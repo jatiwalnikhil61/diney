@@ -111,7 +111,7 @@ h3 {
   flex: 1;
   min-height: 100vh;
   background: var(--cream);
-  transition: margin-left var(--transition-base);
+  transition: margin-left var(--transition-base), padding-left var(--transition-base);
 }
 
 /* ─── Sidebar ────────────────────────────────────────────── */
@@ -336,6 +336,7 @@ h3 {
   border-radius: var(--radius);
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-card);
+  padding: 20px;
 }
 
 .stat-card {
@@ -570,27 +571,49 @@ h3 {
 
 /* Variable remapping — auto-flips any inline style using var() */
 .dark {
+  /* Surfaces */
   --white: #243830;
   --cream: #1A2A24;
   --cream-dark: #1E3229;
   --cream-border: rgba(255, 255, 255, 0.08);
 
+  /* Stone scale — fully inverted for dark mode */
   --stone-50: #1A2F25;
   --stone-100: #1E3229;
   --stone-200: rgba(255, 255, 255, 0.10);
   --stone-300: rgba(255, 255, 255, 0.15);
+  --stone-400: #7A9E8E;
+  /* muted text in dark — becomes readable green-grey */
+  --stone-500: #9AB5A8;
+  /* secondary text — lighter */
+  --stone-600: #B8C4BC;
+  /* body text — maps to light body text */
+  --stone-700: #D4DED8;
+  /* labels/headings — bright on dark */
+  --stone-800: #E8F0EC;
+  /* near-white text */
+  --stone-900: #F0EDE8;
+  /* primary text — same as --text-primary */
 
+  /* Semantic shortcuts (derived from stone) */
   --text-primary: #F0EDE8;
   --text-secondary: #B8C4BC;
-  --text-muted: #5A7A6A;
+  --text-muted: #7A9E8E;
 
+  /* Borders & shadows */
   --border: rgba(255, 255, 255, 0.10);
   --border-light: rgba(255, 255, 255, 0.06);
   --saffron-light: rgba(245, 158, 11, 0.15);
-
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.20), 0 2px 8px rgba(0, 0, 0, 0.15);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.20), 0 1px 3px rgba(0, 0, 0, 0.15);
+
+  /* Brand colors — flip dark greens to readable light tones */
+  --cardamom: #C8D9CF;
+  /* was deep green — now light sage (readable on dark bg) */
+  --cardamom-mid: #9AB5A8;
+  --cardamom-light: #7A9E8E;
+  /* was mid green — now readable muted green */
 }
 
 /* Page and layout backgrounds */
@@ -598,6 +621,15 @@ h3 {
 .dark .main-content {
   background: #1A2A24;
   color: #F0EDE8;
+}
+
+/* Sidebar stays dark green in both themes — protect from cardamom remapping */
+.dark .sidebar {
+  background: #1B2E1B;
+}
+
+.dark .sidebar .sidebar-brand-name {
+  color: #FFFFFF;
 }
 
 /* Page header bar */

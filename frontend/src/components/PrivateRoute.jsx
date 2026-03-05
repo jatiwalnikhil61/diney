@@ -1,8 +1,9 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import AccessDenied from '../pages/AccessDenied'
+import ModuleDisabled from '../pages/ModuleDisabled'
 
-export default function PrivateRoute({ children, role, requireKitchenAccess, requireWaiterAccess }) {
+export default function PrivateRoute({ children, role, requireKitchenAccess, requireWaiterAccess, module }) {
     const auth = useAuth()
 
     // Not logged in → redirect to login
@@ -10,12 +11,17 @@ export default function PrivateRoute({ children, role, requireKitchenAccess, req
         return <Navigate to="/login" replace />
     }
 
-    // Role check
-    if (role) {
+    // Role check — SUPER_ADMIN bypasses all role restrictions
+    if (role && auth.role !== 'SUPER_ADMIN') {
         const allowed = Array.isArray(role) ? role : [role]
         if (!allowed.includes(auth.role)) {
             return <AccessDenied />
         }
+    }
+
+    // Module check — if a module is specified and it's disabled for this restaurant
+    if (module && !auth.isModuleEnabled(module)) {
+        return <ModuleDisabled moduleName={module} />
     }
 
     // Kitchen access check

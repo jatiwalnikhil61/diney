@@ -22,6 +22,7 @@ import RestaurantProfile from './pages/RestaurantProfile'
 import SuperAdminOverview from './pages/SuperAdminOverview'
 import SuperAdminRestaurants from './pages/SuperAdminRestaurants'
 import SuperAdminRestaurantDetail from './pages/SuperAdminRestaurantDetail'
+import ProcessConfigPage from './pages/ProcessConfig'
 
 // Wraps protected pages with the sidebar shell
 function ShellLayout({ children }) {
@@ -40,7 +41,10 @@ function ShellLayout({ children }) {
   return (
     <div className="app-shell">
       <Sidebar sidebarOpen={sidebarOpen} onToggle={toggleSidebar} />
-      <main className="main-content" style={{ marginLeft: sidebarOpen ? 'var(--sidebar-width)' : 0 }}>
+      <main className="main-content" style={{
+        marginLeft: sidebarOpen ? 'var(--sidebar-width)' : 0,
+        paddingLeft: sidebarOpen ? 0 : 48,
+      }}>
         {children}
       </main>
     </div>
@@ -66,22 +70,22 @@ function AppRoutes() {
 
         {/* Protected — sidebar shell */}
         <Route path="/dashboard" element={
-          <PrivateRoute role="OWNER">
+          <PrivateRoute role="OWNER" module="owner_dashboard">
             <ShellLayout><AnalyticsDashboard /></ShellLayout>
           </PrivateRoute>
         } />
         <Route path="/dashboard/orders" element={
-          <PrivateRoute role="OWNER">
+          <PrivateRoute role="OWNER" module="owner_dashboard">
             <ShellLayout><OrderHistory /></ShellLayout>
           </PrivateRoute>
         } />
         <Route path="/dashboard/kitchen" element={
-          <PrivateRoute requireKitchenAccess>
+          <PrivateRoute requireKitchenAccess module="kitchen_module">
             <ShellLayout><KitchenDashboard /></ShellLayout>
           </PrivateRoute>
         } />
         <Route path="/dashboard/waiter" element={
-          <PrivateRoute requireWaiterAccess>
+          <PrivateRoute requireWaiterAccess module="waiter_module">
             <ShellLayout><WaiterDashboard /></ShellLayout>
           </PrivateRoute>
         } />
@@ -91,18 +95,23 @@ function AppRoutes() {
           </PrivateRoute>
         } />
         <Route path="/dashboard/menu" element={
-          <PrivateRoute role="OWNER">
+          <PrivateRoute role="OWNER" module="menu_management">
             <ShellLayout><MenuManagement /></ShellLayout>
           </PrivateRoute>
         } />
         <Route path="/dashboard/staff" element={
-          <PrivateRoute role="OWNER">
+          <PrivateRoute role="OWNER" module="staff_management">
             <ShellLayout><StaffManagement /></ShellLayout>
           </PrivateRoute>
         } />
         <Route path="/dashboard/profile" element={
           <PrivateRoute role="OWNER">
             <ShellLayout><RestaurantProfile /></ShellLayout>
+          </PrivateRoute>
+        } />
+        <Route path="/dashboard/config" element={
+          <PrivateRoute role="OWNER">
+            <ShellLayout><ProcessConfigPage /></ShellLayout>
           </PrivateRoute>
         } />
 

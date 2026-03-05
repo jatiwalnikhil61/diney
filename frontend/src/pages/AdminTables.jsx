@@ -5,7 +5,7 @@ import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
-const BASE_URL = 'http://localhost:5173'
+const BASE_URL = import.meta.env.VITE_FRONTEND_URL || window.location.origin
 
 export default function AdminTables() {
     const [tables, setTables] = useState([])
