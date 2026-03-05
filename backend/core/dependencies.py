@@ -6,7 +6,6 @@ from uuid import UUID
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,17 +15,18 @@ from core.database import get_db
 from models import User, UserRole, ProcessConfig
 
 settings = get_settings()
-security = HTTPBearer()
 
 
 # ─── JWT decode ───────────────────────────────────────────
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Decode access_token JWT, fetch and return active User."""
-    token = credentials.credentials
+    """Decode access_token JWT from cookie, fetch and return active User."""
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(401, "Not authenticated")
     try:
         payload = jwt.decode(
             token,

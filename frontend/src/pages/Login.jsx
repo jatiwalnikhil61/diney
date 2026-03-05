@@ -27,7 +27,7 @@ function getHomePath(role, modules) {
 
 export default function Login() {
     const navigate = useNavigate()
-    const { login, isAuthenticated, role, modules } = useAuth()
+    const { login, isAuthenticated, loading: authLoading, role, modules } = useAuth()
     const [step, setStep] = useState(1) // 1 = credentials, 2 = OTP
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -39,10 +39,10 @@ export default function Login() {
     const [resendCountdown, setResendCountdown] = useState(0)
     const otpRefs = useRef([])
 
-    // Redirect if already logged in
+    // Redirect if already logged in (wait for session restore first)
     useEffect(() => {
-        if (isAuthenticated) navigate(getHomePath(role, modules), { replace: true })
-    }, [isAuthenticated])
+        if (!authLoading && isAuthenticated) navigate(getHomePath(role, modules), { replace: true })
+    }, [authLoading, isAuthenticated])
 
     // Resend countdown timer
     useEffect(() => {
@@ -113,7 +113,7 @@ export default function Login() {
             })
             login(res.data)
             toast.success('Welcome!')
-            navigate(getHomePath(res.data.role, res.data.modules), { replace: true })
+            navigate(getHomePath(res.data.user.role, res.data.modules), { replace: true })
         } catch (err) {
             setError(err.response?.data?.detail || 'Verification failed')
             setOtp(['', '', '', '', '', ''])

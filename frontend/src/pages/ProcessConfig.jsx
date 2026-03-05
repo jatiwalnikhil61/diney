@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import api from '../services/api'
 
 const ModuleIcon = ({ d, size = 28, stroke = 'var(--cardamom)' }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke}
@@ -47,7 +46,7 @@ const MODULE_INFO = {
 const MODULE_KEYS = Object.keys(MODULE_INFO)
 
 export default function ProcessConfig() {
-    const { token, effectiveRestaurantId, updateModules, role } = useAuth()
+    const { effectiveRestaurantId, updateModules, role } = useAuth()
     const { isDark } = useTheme()
     const [config, setConfig] = useState(null)
     const [loading, setLoading] = useState(true)
@@ -58,20 +57,16 @@ export default function ProcessConfig() {
     const fetchConfig = useCallback(async () => {
         try {
             const url = role === 'SUPER_ADMIN'
-                ? `${API}/api/superadmin/restaurants/${effectiveRestaurantId}/config`
-                : `${API}/api/restaurants/config/me?restaurant_id=${effectiveRestaurantId}`
-            const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` },
-            })
-            if (!res.ok) throw new Error('Failed to load config')
-            const data = await res.json()
-            setConfig(data)
+                ? `/api/superadmin/restaurants/${effectiveRestaurantId}/config`
+                : `/api/restaurants/config/me?restaurant_id=${effectiveRestaurantId}`
+            const res = await api.get(url)
+            setConfig(res.data)
         } catch (e) {
-            setError(e.message)
+            setError(e.response?.data?.detail || e.message || 'Failed to load config')
         } finally {
             setLoading(false)
         }
-    }, [token, effectiveRestaurantId, role])
+    }, [effectiveRestaurantId, role])
 
     useEffect(() => { fetchConfig() }, [fetchConfig])
 
@@ -88,21 +83,10 @@ export default function ProcessConfig() {
         setSaving(key)
         try {
             const url = role === 'SUPER_ADMIN'
-                ? `${API}/api/superadmin/restaurants/${effectiveRestaurantId}/config`
-                : `${API}/api/restaurants/config/me?restaurant_id=${effectiveRestaurantId}`
-            const res = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ [key]: newValue }),
-            })
-            if (!res.ok) {
-                const err = await res.json()
-                throw new Error(err.detail || 'Failed to update')
-            }
-            const data = await res.json()
+                ? `/api/superadmin/restaurants/${effectiveRestaurantId}/config`
+                : `/api/restaurants/config/me?restaurant_id=${effectiveRestaurantId}`
+            const res = await api.patch(url, { [key]: newValue })
+            const data = res.data
             setConfig(data)
 
             // Update auth context modules if not super admin
@@ -119,7 +103,7 @@ export default function ProcessConfig() {
                 showToast(`${MODULE_INFO[key].label} ${newValue ? 'enabled' : 'disabled'}`, 'success')
             }
         } catch (e) {
-            showToast(e.message, 'error')
+            showToast(e.response?.data?.detail || e.message || 'Failed to update', 'error')
         } finally {
             setSaving(null)
         }

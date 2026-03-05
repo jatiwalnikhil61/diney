@@ -2,9 +2,13 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import AccessDenied from '../pages/AccessDenied'
 import ModuleDisabled from '../pages/ModuleDisabled'
+import LoadingScreen from './LoadingScreen'
 
 export default function PrivateRoute({ children, role, requireKitchenAccess, requireWaiterAccess, module }) {
     const auth = useAuth()
+
+    // Wait for session restore before deciding
+    if (auth.loading) return <LoadingScreen />
 
     // Not logged in → redirect to login
     if (!auth.isAuthenticated) {

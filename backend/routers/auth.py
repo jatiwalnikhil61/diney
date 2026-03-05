@@ -4,9 +4,10 @@ Auth router: login, verify-otp, resend-otp.
 
 import secrets
 from datetime import datetime, timezone, timedelta
+from uuid import UUID
 
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from pydantic import BaseModel
@@ -40,6 +41,57 @@ def _create_token(payload: dict, expires_minutes: int) -> str:
     data = payload.copy()
     data["exp"] = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
     return jwt.encode(data, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def _set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=not settings.DEV_MODE,
+        samesite="lax" if settings.DEV_MODE else "none",
+        max_age=86400,
+        path="/",
+    )
+
+
+async def _get_user_data(user: User, db: AsyncSession) -> dict:
+    """Build the {user, modules} response dict shared by verify-otp and /me."""
+    restaurant_name = None
+    modules = None
+    owner_can_configure = False
+    if user.restaurant_id:
+        rest_result = await db.execute(
+            select(Restaurant.name).where(Restaurant.id == user.restaurant_id)
+        )
+        restaurant_name = rest_result.scalar_one_or_none()
+        if user.role.value != "SUPER_ADMIN":
+            config_result = await db.execute(
+                select(ProcessConfig).where(ProcessConfig.restaurant_id == user.restaurant_id)
+            )
+            config = config_result.scalar_one_or_none()
+            if config:
+                modules = {
+                    "kitchen_module": config.kitchen_module,
+                    "waiter_module": config.waiter_module,
+                    "owner_dashboard": config.owner_dashboard,
+                    "customer_status_tracking": config.customer_status_tracking,
+                    "menu_management": config.menu_management,
+                    "staff_management": config.staff_management,
+                }
+                owner_can_configure = config.owner_can_configure
+    return {
+        "user": {
+            "role": user.role.value,
+            "email": user.email,
+            "restaurant_id": str(user.restaurant_id) if user.restaurant_id else None,
+            "restaurant_name": restaurant_name,
+            "can_access_kitchen": user.can_access_kitchen,
+            "can_access_waiter": user.can_access_waiter,
+            "owner_can_configure": owner_can_configure,
+        },
+        "modules": modules,
+    }
 
 
 async def _generate_and_deliver_otp(user: User, db: AsyncSession) -> None:
@@ -102,6 +154,7 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
 @router.post("/verify-otp")
 async def verify_otp(
     data: OTPRequest,
+    response: Response,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ):
@@ -143,62 +196,48 @@ async def verify_otp(
     if not user or not user.is_active:
         raise HTTPException(401, "User not found or inactive")
 
-    # Get restaurant name + process config
-    restaurant_name = None
-    modules = None
-    owner_can_configure = False
-    if user.restaurant_id:
-        rest_result = await db.execute(
-            select(Restaurant.name).where(Restaurant.id == user.restaurant_id)
-        )
-        restaurant_name = rest_result.scalar_one_or_none()
-
-        # Fetch process config for modules (non-SUPER_ADMIN only)
-        if user.role.value != "SUPER_ADMIN":
-            config_result = await db.execute(
-                select(ProcessConfig).where(ProcessConfig.restaurant_id == user.restaurant_id)
-            )
-            config = config_result.scalar_one_or_none()
-            if config:
-                modules = {
-                    "kitchen_module": config.kitchen_module,
-                    "waiter_module": config.waiter_module,
-                    "owner_dashboard": config.owner_dashboard,
-                    "customer_status_tracking": config.customer_status_tracking,
-                    "menu_management": config.menu_management,
-                    "staff_management": config.staff_management,
-                }
-                owner_can_configure = config.owner_can_configure
-
     await db.commit()
 
-    # Issue access token (24h)
+    # Issue access token (24h) and set as httpOnly cookie
     access_token = _create_token(
-        {
-            "sub": str(user.id),
-            "restaurant_id": str(user.restaurant_id) if user.restaurant_id else None,
-            "role": user.role.value,
-            "can_access_kitchen": user.can_access_kitchen,
-            "can_access_waiter": user.can_access_waiter,
-            "modules": modules,
-            "owner_can_configure": owner_can_configure,
-            "type": "access_token",
-        },
+        {"sub": str(user.id), "type": "access_token"},
         expires_minutes=1440,
     )
+    _set_auth_cookie(response, access_token)
 
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "role": user.role.value,
-        "email": user.email,
-        "restaurant_name": restaurant_name,
-        "restaurant_id": str(user.restaurant_id) if user.restaurant_id else None,
-        "can_access_kitchen": user.can_access_kitchen,
-        "can_access_waiter": user.can_access_waiter,
-        "modules": modules,
-        "owner_can_configure": owner_can_configure,
-    }
+    return await _get_user_data(user, db)
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        secure=not settings.DEV_MODE,
+        samesite="lax" if settings.DEV_MODE else "none",
+    )
+    return {"message": "Logged out successfully"}
+
+
+@router.get("/me")
+async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("type") != "access_token":
+            raise HTTPException(401, "Invalid token type")
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(401, "Invalid token")
+    except JWTError:
+        raise HTTPException(401, "Token expired or invalid")
+    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(401, "User not found or inactive")
+    return await _get_user_data(user, db)
 
 
 @router.post("/resend-otp")

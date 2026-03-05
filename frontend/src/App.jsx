@@ -56,8 +56,8 @@ function AppRoutes() {
   const location = useLocation()
 
   useEffect(() => {
-    setupInterceptors(auth)
-  }, [auth.token])
+    setupInterceptors(auth.logout)
+  }, [auth.logout])
 
   return (
     <div key={location.pathname} className="page-enter">

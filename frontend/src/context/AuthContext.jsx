@@ -1,75 +1,80 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 const AuthContext = createContext(null)
 
+const EMPTY = {
+    role: null,
+    email: null,
+    restaurantId: null,
+    restaurantName: null,
+    canAccessKitchen: false,
+    canAccessWaiter: false,
+    selectedRestaurantId: null,
+    modules: null,
+    ownerCanConfigure: false,
+}
+
+function mapResponse(data) {
+    return {
+        role: data.user.role,
+        email: data.user.email,
+        restaurantId: data.user.restaurant_id,
+        restaurantName: data.user.restaurant_name,
+        canAccessKitchen: data.user.can_access_kitchen,
+        canAccessWaiter: data.user.can_access_waiter,
+        selectedRestaurantId: data.user.restaurant_id,
+        modules: data.modules || null,
+        ownerCanConfigure: data.user.owner_can_configure || false,
+    }
+}
+
 export function AuthProvider({ children }) {
-    const [auth, setAuth] = useState({
-        token: null,
-        role: null,
-        email: null,
-        restaurantId: null,
-        restaurantName: null,
-        canAccessKitchen: false,
-        canAccessWaiter: false,
-        selectedRestaurantId: null,
-        modules: null,           // null = full access (SUPER_ADMIN)
-        ownerCanConfigure: false,
-    })
+    const [auth, setAuth] = useState(EMPTY)
+    const [loading, setLoading] = useState(true)
+    const navigate = useNavigate()
+
+    // Restore session from cookie on mount
+    useEffect(() => {
+        api.get('/api/auth/me')
+            .then(res => setAuth(mapResponse(res.data)))
+            .catch(() => setAuth(EMPTY))
+            .finally(() => setLoading(false))
+    }, [])
 
     const login = useCallback((data) => {
-        setAuth({
-            token: data.access_token,
-            role: data.role,
-            email: data.email,
-            restaurantId: data.restaurant_id,
-            restaurantName: data.restaurant_name,
-            canAccessKitchen: data.can_access_kitchen,
-            canAccessWaiter: data.can_access_waiter,
-            selectedRestaurantId: data.restaurant_id,
-            modules: data.modules || null,
-            ownerCanConfigure: data.owner_can_configure || false,
-        })
+        setAuth(mapResponse(data))
     }, [])
 
-    const logout = useCallback(() => {
-        setAuth({
-            token: null,
-            role: null,
-            email: null,
-            restaurantId: null,
-            restaurantName: null,
-            canAccessKitchen: false,
-            canAccessWaiter: false,
-            selectedRestaurantId: null,
-            modules: null,
-            ownerCanConfigure: false,
-        })
-    }, [])
+    const logout = useCallback(async () => {
+        try { await api.post('/api/auth/logout') } catch {}
+        setAuth(EMPTY)
+        navigate('/login')
+    }, [navigate])
 
     const setSelectedRestaurant = useCallback((id, name) => {
         setAuth(prev => ({ ...prev, selectedRestaurantId: id, restaurantName: name }))
     }, [])
 
-    const isAuthenticated = !!auth.token
+    const isAuthenticated = !!auth.role
 
     // Module access check — SUPER_ADMIN (modules=null) always has access
     const isModuleEnabled = useCallback((moduleName) => {
-        if (!auth.modules) return true  // null means full access (SUPER_ADMIN)
+        if (!auth.modules) return true
         return !!auth.modules[moduleName]
     }, [auth.modules])
 
-    // Refresh modules after config change (re-fetch from API)
     const updateModules = useCallback((newModules) => {
         setAuth(prev => ({ ...prev, modules: newModules }))
     }, [])
 
-    // The effective restaurant_id for API calls
     const effectiveRestaurantId = auth.selectedRestaurantId || auth.restaurantId
 
     return (
         <AuthContext.Provider value={{
             ...auth,
+            loading,
             isAuthenticated,
             effectiveRestaurantId,
             isModuleEnabled,
