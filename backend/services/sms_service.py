@@ -21,6 +21,7 @@ async def send_sms(phone: str, message: str) -> bool:
                 headers={
                     "Content-Type": "application/json",
                     "X-API-Key": settings.SMSBRIDGE_API_KEY,
+                    "ngrok-skip-browser-warning": "true",
                 },
                 json={
                     "deviceId": settings.SMSBRIDGE_DEVICE_ID,
