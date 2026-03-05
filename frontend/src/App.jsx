@@ -7,6 +7,7 @@ import { setupInterceptors } from './services/api'
 import PrivateRoute from './components/PrivateRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import Sidebar from './components/Sidebar'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import AccessDenied from './pages/AccessDenied'
 import CustomerMenu from './pages/CustomerMenu'
@@ -63,6 +64,7 @@ function AppRoutes() {
     <div key={location.pathname} className="page-enter">
       <Routes>
         {/* Public — no sidebar */}
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/menu/:qrToken" element={<CustomerMenu />} />
         <Route path="/menu/:qrToken/order/:orderId" element={<OrderStatus />} />
@@ -132,7 +134,7 @@ function AppRoutes() {
           </PrivateRoute>
         } />
 
-        {/* Catch-all */}
+        {/* Catch-all — unknown paths go to login, not / */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </div>
