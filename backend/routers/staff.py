@@ -14,6 +14,7 @@ from core.config import get_settings
 from core.database import get_db
 from core.dependencies import get_current_user, get_restaurant_id, require_module
 from models import User, UserRole, Restaurant
+from services.sms_service import send_sms
 
 settings = get_settings()
 router = APIRouter(
@@ -67,17 +68,6 @@ class StaffUpdate(BaseModel):
 
 class PasswordReset(BaseModel):
     new_password: str
-
-
-# ─── Helpers ───────────────────────────────────────────────
-
-def _send_sms(phone: str, message: str):
-    """Send SMS via SMSBridge or print in DEV mode."""
-    if settings.DEV_MODE:
-        print(f"\n[DEV SMS] To {phone}:\n{message}\n")
-    else:
-        # TODO: integrate SMSBridge
-        pass
 
 
 # ─── Routes ────────────────────────────────────────────────
@@ -140,7 +130,7 @@ async def create_staff(
     restaurant = rest.scalar_one_or_none()
     rest_name = restaurant.name if restaurant else "your restaurant"
 
-    _send_sms(data.phone, (
+    await send_sms(data.phone, (
         f"Welcome to {rest_name} on Diney!\n"
         f"Login at {settings.FRONTEND_URL}/login\n"
         f"Email: {data.email} | Password: {data.password}"
@@ -222,7 +212,7 @@ async def reset_password(
     staff.password_hash = pw_hash
     await db.commit()
 
-    _send_sms(staff.phone, (
+    await send_sms(staff.phone, (
         f"Your Diney password has been reset. New password: {data.new_password}"
     ))
 

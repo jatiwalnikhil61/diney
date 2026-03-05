@@ -16,6 +16,7 @@ from sqlalchemy import select, func
 from core.config import get_settings
 from core.database import get_db
 from models import User, OTPLog, Restaurant, ProcessConfig
+from services.sms_service import send_sms
 
 settings = get_settings()
 security = HTTPBearer()
@@ -61,11 +62,11 @@ async def _generate_and_deliver_otp(user: User, db: AsyncSession) -> None:
     db.add(otp_log)
     await db.flush()
 
-    if settings.DEV_MODE:
-        print(f"\n[DEV] OTP for {user.email}: {otp}\n")
-    else:
-        # TODO: call sms_service.send_sms(user.phone, otp)
-        print(f"[SMS] Would send OTP to {user.phone}")
+    otp_message = (
+        f"Your Diney OTP is {otp}. "
+        f"Valid for 10 minutes. Do not share this code."
+    )
+    await send_sms(user.phone, otp_message)
 
 
 # ─── Endpoints ────────────────────────────────────────────
