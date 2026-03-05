@@ -282,9 +282,9 @@ function ExportModal({ onClose, dateRange, statusFilter, tableFilter, effectiveR
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function OrderHistory() {
-    const [rangeKey, setRangeKey] = useState('7d')
-    const [customFrom, setCustomFrom] = useState('')
-    const [customTo, setCustomTo] = useState('')
+    const [rangeKey, setRangeKey] = useState(() => sessionStorage.getItem('oh_rangeKey') || '7d')
+    const [customFrom, setCustomFrom] = useState(() => sessionStorage.getItem('oh_customFrom') || '')
+    const [customTo, setCustomTo] = useState(() => sessionStorage.getItem('oh_customTo') || '')
     const [statusFilter, setStatusFilter] = useState('All')
     const [tableFilter, setTableFilter] = useState('')
     const [tables, setTables] = useState([])
@@ -295,6 +295,12 @@ export default function OrderHistory() {
     const [loading, setLoading] = useState(true)
     const [exportModalOpen, setExportModalOpen] = useState(false)
     const { effectiveRestaurantId } = useAuth()
+
+    useEffect(() => {
+        sessionStorage.setItem('oh_rangeKey', rangeKey)
+        sessionStorage.setItem('oh_customFrom', customFrom)
+        sessionStorage.setItem('oh_customTo', customTo)
+    }, [rangeKey, customFrom, customTo])
 
     const dateRange = rangeKey === 'custom'
         ? { date_from: customFrom, date_to: customTo }

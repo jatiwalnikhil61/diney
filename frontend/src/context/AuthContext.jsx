@@ -38,7 +38,18 @@ export function AuthProvider({ children }) {
     // Restore session from cookie on mount
     useEffect(() => {
         api.get('/api/auth/me')
-            .then(res => setAuth(mapResponse(res.data)))
+            .then(res => {
+            const mapped = mapResponse(res.data)
+
+            const storedId = sessionStorage.getItem('selectedRestaurantId')
+            const storedName = sessionStorage.getItem('selectedRestaurantName')
+
+            setAuth({
+                ...mapped,
+                selectedRestaurantId: storedId || mapped.selectedRestaurantId,
+                restaurantName: storedName || mapped.restaurantName
+            })
+        })
             .catch(() => setAuth(EMPTY))
             .finally(() => setLoading(false))
     }, [])
@@ -49,11 +60,15 @@ export function AuthProvider({ children }) {
 
     const logout = useCallback(async () => {
         try { await api.post('/api/auth/logout') } catch {}
+        sessionStorage.removeItem('selectedRestaurantId')
+        sessionStorage.removeItem('selectedRestaurantName')
         setAuth(EMPTY)
         navigate('/login')
     }, [navigate])
 
     const setSelectedRestaurant = useCallback((id, name) => {
+        sessionStorage.setItem('selectedRestaurantId', id) 
+        sessionStorage.setItem('selectedRestaurantName', name) 
         setAuth(prev => ({ ...prev, selectedRestaurantId: id, restaurantName: name }))
     }, [])
 
