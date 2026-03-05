@@ -8,8 +8,9 @@ from sqlalchemy.orm import selectinload
 
 from core.database import get_db
 from core.dependencies import get_current_user, get_restaurant_id
-from models import Order, OrderItem, OrderStatus, ORDER_STATUS_TRANSITIONS, Table, User
+from models import Order, OrderItem, OrderStatus, Table, User
 from schemas import OrderResponse, OrderStatusUpdate
+from services.order_flow import get_valid_transitions
 
 router = APIRouter(prefix="/api/orders", tags=["Orders (Staff)"])
 
@@ -99,13 +100,15 @@ async def update_order_status(
     current_status = order.status
     new_status = data.status
 
-    # Validate transition
-    allowed_next = ORDER_STATUS_TRANSITIONS.get(current_status)
-    if allowed_next != new_status:
+    # Use process_snapshot-aware transition logic
+    valid_next = get_valid_transitions(current_status, order.process_snapshot)
+    if new_status not in valid_next:
+        valid_str = ", ".join(s.value for s in valid_next) if valid_next else "none (terminal state)"
         raise HTTPException(
             400,
             f"Invalid status transition: {current_status.value} → {new_status.value}. "
-            f"Allowed: {current_status.value} → {allowed_next.value if allowed_next else 'none (terminal state)'}",
+            f"Allowed: {valid_str}. "
+            f"This transition is not allowed in your current configuration.",
         )
 
     order.status = new_status

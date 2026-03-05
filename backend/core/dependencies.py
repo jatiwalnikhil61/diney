@@ -1,11 +1,11 @@
 """
-Auth dependencies: JWT verification, role guards, restaurant scoping.
+Auth dependencies: JWT verification, role guards, restaurant scoping, module guards.
 """
 
 from uuid import UUID
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from core.config import get_settings
 from core.database import get_db
-from models import User, UserRole
+from models import User, UserRole, ProcessConfig
 
 settings = get_settings()
 security = HTTPBearer()
@@ -80,3 +80,38 @@ async def get_restaurant_id(
             raise HTTPException(400, "restaurant_id query param required for super admin")
         return restaurant_id
     return user.restaurant_id
+
+
+# ─── Process config & module guards ──────────────────────
+
+async def get_process_config(
+    user: User = Depends(get_current_user),
+    restaurant_id: UUID = Depends(get_restaurant_id),
+    db: AsyncSession = Depends(get_db),
+) -> ProcessConfig:
+    """Fetch ProcessConfig for the current restaurant. Returns defaults if none exists."""
+    result = await db.execute(
+        select(ProcessConfig).where(ProcessConfig.restaurant_id == restaurant_id)
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        # Auto-create with defaults if missing (e.g. legacy restaurants)
+        config = ProcessConfig(restaurant_id=restaurant_id)
+        db.add(config)
+        await db.flush()
+    return config
+
+
+def require_module(module_name: str):
+    """Factory that returns a dependency checking if a module is enabled for the restaurant."""
+    async def _guard(
+        user: User = Depends(get_current_user),
+        config: ProcessConfig = Depends(get_process_config),
+    ) -> ProcessConfig:
+        # Super admin always has access
+        if user.role == UserRole.SUPER_ADMIN:
+            return config
+        if not getattr(config, module_name, True):
+            raise HTTPException(403, f"This module is not enabled for your restaurant")
+        return config
+    return _guard

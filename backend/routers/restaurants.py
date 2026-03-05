@@ -9,8 +9,9 @@ from sqlalchemy import select
 from core.config import get_settings
 from core.database import get_db
 from core.dependencies import get_current_user, require_staff, get_restaurant_id
-from models import Restaurant, User, UserRole
+from models import Restaurant, User, UserRole, ProcessConfig
 from schemas import RestaurantCreate, RestaurantUpdate, RestaurantResponse
+from services.order_flow import validate_module_combination
 
 settings = get_settings()
 router = APIRouter(prefix="/api/restaurants", tags=["Restaurants"])
@@ -185,3 +186,90 @@ async def remove_logo(
     restaurant.logo_url = None
     await db.commit()
     return {"message": "Logo removed"}
+
+
+# ─── Process Config (owner self-service) ──────────────────
+
+class OwnerConfigUpdate(BaseModel):
+    kitchen_module: Optional[bool] = None
+    waiter_module: Optional[bool] = None
+    owner_dashboard: Optional[bool] = None
+    customer_status_tracking: Optional[bool] = None
+    menu_management: Optional[bool] = None
+    staff_management: Optional[bool] = None
+
+
+@router.get("/config/me")
+async def get_owner_config(
+    restaurant_id: UUID = Depends(get_restaurant_id),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ProcessConfig).where(ProcessConfig.restaurant_id == restaurant_id)
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        config = ProcessConfig(restaurant_id=restaurant_id)
+        db.add(config)
+        await db.commit()
+        await db.refresh(config)
+
+    return {
+        "kitchen_module": config.kitchen_module,
+        "waiter_module": config.waiter_module,
+        "owner_dashboard": config.owner_dashboard,
+        "customer_status_tracking": config.customer_status_tracking,
+        "menu_management": config.menu_management,
+        "staff_management": config.staff_management,
+        "owner_can_configure": config.owner_can_configure,
+        "can_edit": config.owner_can_configure or user.role == UserRole.SUPER_ADMIN,
+        "updated_at": config.updated_at.isoformat() if config.updated_at else None,
+    }
+
+
+@router.patch("/config/me")
+async def update_owner_config(
+    data: OwnerConfigUpdate,
+    restaurant_id: UUID = Depends(get_restaurant_id),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ProcessConfig).where(ProcessConfig.restaurant_id == restaurant_id)
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        raise HTTPException(404, "Config not found")
+
+    # Only allow edit if owner_can_configure is true or user is super admin
+    if not config.owner_can_configure and user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(403, "Configuration changes are not enabled for your restaurant")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(config, key, value)
+
+    # Validate kitchen+waiter combo
+    error = validate_module_combination(config.kitchen_module, config.waiter_module)
+    if error:
+        if "kitchen_module" in update_data and not update_data["kitchen_module"]:
+            config.waiter_module = False
+        else:
+            raise HTTPException(400, error)
+
+    config.updated_by = user.id
+    await db.commit()
+    await db.refresh(config)
+
+    return {
+        "kitchen_module": config.kitchen_module,
+        "waiter_module": config.waiter_module,
+        "owner_dashboard": config.owner_dashboard,
+        "customer_status_tracking": config.customer_status_tracking,
+        "menu_management": config.menu_management,
+        "staff_management": config.staff_management,
+        "owner_can_configure": config.owner_can_configure,
+        "can_edit": config.owner_can_configure or user.role == UserRole.SUPER_ADMIN,
+        "updated_at": config.updated_at.isoformat() if config.updated_at else None,
+    }

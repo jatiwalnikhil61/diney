@@ -15,11 +15,12 @@ from sqlalchemy import select, func, cast, Date, and_
 from sqlalchemy.orm import selectinload
 
 from core.database import get_db
-from core.dependencies import require_super_admin
+from core.dependencies import require_super_admin, get_current_user
 from models import (
     Restaurant, User, UserRole, Order, OrderItem, OrderStatus,
-    MenuCategory, MenuItem, Table,
+    MenuCategory, MenuItem, Table, ProcessConfig,
 )
+from services.order_flow import validate_module_combination
 
 router = APIRouter(
     prefix="/api/superadmin",
@@ -43,6 +44,15 @@ class RestaurantCreate(BaseModel):
     owner_email: EmailStr
     owner_phone: str
     owner_password: str
+
+class ProcessConfigUpdate(BaseModel):
+    kitchen_module: Optional[bool] = None
+    waiter_module: Optional[bool] = None
+    owner_dashboard: Optional[bool] = None
+    customer_status_tracking: Optional[bool] = None
+    menu_management: Optional[bool] = None
+    staff_management: Optional[bool] = None
+    owner_can_configure: Optional[bool] = None
 
 
 # ─── GET /restaurants ─────────────────────────────────────
@@ -385,6 +395,14 @@ async def create_restaurant(
         can_access_waiter=False,
     )
     db.add(owner)
+
+    # Auto-create ProcessConfig with all modules ON
+    config = ProcessConfig(
+        restaurant_id=restaurant.id,
+        owner_can_configure=False,
+    )
+    db.add(config)
+
     await db.commit()
     await db.refresh(restaurant)
     await db.refresh(owner)
@@ -482,4 +500,84 @@ async def platform_activity(
             }
             for o in orders
         ]
+    }
+
+
+# ─── GET /restaurants/{id}/config ────────────────────────
+
+@router.get("/restaurants/{restaurant_id}/config")
+async def get_restaurant_config(
+    restaurant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ProcessConfig).where(ProcessConfig.restaurant_id == restaurant_id)
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        # Auto-create defaults
+        config = ProcessConfig(restaurant_id=restaurant_id)
+        db.add(config)
+        await db.commit()
+        await db.refresh(config)
+
+    return {
+        "kitchen_module": config.kitchen_module,
+        "waiter_module": config.waiter_module,
+        "owner_dashboard": config.owner_dashboard,
+        "customer_status_tracking": config.customer_status_tracking,
+        "menu_management": config.menu_management,
+        "staff_management": config.staff_management,
+        "owner_can_configure": config.owner_can_configure,
+        "updated_at": config.updated_at.isoformat() if config.updated_at else None,
+    }
+
+
+# ─── PATCH /restaurants/{id}/config ──────────────────────
+
+@router.patch("/restaurants/{restaurant_id}/config")
+async def update_restaurant_config(
+    restaurant_id: UUID,
+    data: ProcessConfigUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ProcessConfig).where(ProcessConfig.restaurant_id == restaurant_id)
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        config = ProcessConfig(restaurant_id=restaurant_id)
+        db.add(config)
+        await db.flush()
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    # Apply updates
+    for key, value in update_data.items():
+        setattr(config, key, value)
+
+    # Validate kitchen+waiter combo
+    error = validate_module_combination(config.kitchen_module, config.waiter_module)
+    if error:
+        # Auto-fix: if kitchen is being turned OFF, also turn off waiter
+        if "kitchen_module" in update_data and not update_data["kitchen_module"]:
+            config.waiter_module = False
+        else:
+            raise HTTPException(400, error)
+
+    config.updated_by = user.id
+    await db.commit()
+    await db.refresh(config)
+
+    return {
+        "kitchen_module": config.kitchen_module,
+        "waiter_module": config.waiter_module,
+        "owner_dashboard": config.owner_dashboard,
+        "customer_status_tracking": config.customer_status_tracking,
+        "menu_management": config.menu_management,
+        "staff_management": config.staff_management,
+        "owner_can_configure": config.owner_can_configure,
+        "updated_at": config.updated_at.isoformat() if config.updated_at else None,
+        "waiter_auto_disabled": "kitchen_module" in update_data and not update_data["kitchen_module"] and data.waiter_module is None,
     }

@@ -23,6 +23,7 @@ from models import (
     MenuCategory,
     MenuItem,
     Table,
+    ProcessConfig,
 )
 
 settings = get_settings()
@@ -131,6 +132,19 @@ async def seed():
             )
             db.add(t)
             tables.append(t)
+
+        # ─── 6. Process Config ────────────────────────────
+        config = ProcessConfig(
+            restaurant_id=restaurant.id,
+            kitchen_module=True,
+            waiter_module=True,
+            owner_dashboard=True,
+            customer_status_tracking=True,
+            menu_management=True,
+            staff_management=True,
+            owner_can_configure=True,
+        )
+        db.add(config)
 
         await db.commit()
 

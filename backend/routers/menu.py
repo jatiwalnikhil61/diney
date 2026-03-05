@@ -7,14 +7,18 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from core.database import get_db
-from core.dependencies import get_current_user, get_restaurant_id
+from core.dependencies import get_current_user, get_restaurant_id, require_module
 from models import MenuCategory, MenuItem, User
 from schemas import (
     MenuCategoryCreate, MenuCategoryUpdate, MenuCategoryResponse,
     MenuItemCreate, MenuItemUpdate, MenuItemResponse,
 )
 
-router = APIRouter(prefix="/api/menu", tags=["Menu"])
+router = APIRouter(
+    prefix="/api/menu",
+    tags=["Menu"],
+    dependencies=[Depends(require_module("menu_management"))],
+)
 
 
 # ─── Categories ───────────────────────────────────────────

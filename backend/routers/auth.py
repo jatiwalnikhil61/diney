@@ -15,7 +15,7 @@ from sqlalchemy import select, func
 
 from core.config import get_settings
 from core.database import get_db
-from models import User, OTPLog, Restaurant
+from models import User, OTPLog, Restaurant, ProcessConfig
 
 settings = get_settings()
 security = HTTPBearer()
@@ -142,13 +142,32 @@ async def verify_otp(
     if not user or not user.is_active:
         raise HTTPException(401, "User not found or inactive")
 
-    # Get restaurant name
+    # Get restaurant name + process config
     restaurant_name = None
+    modules = None
+    owner_can_configure = False
     if user.restaurant_id:
         rest_result = await db.execute(
             select(Restaurant.name).where(Restaurant.id == user.restaurant_id)
         )
         restaurant_name = rest_result.scalar_one_or_none()
+
+        # Fetch process config for modules (non-SUPER_ADMIN only)
+        if user.role.value != "SUPER_ADMIN":
+            config_result = await db.execute(
+                select(ProcessConfig).where(ProcessConfig.restaurant_id == user.restaurant_id)
+            )
+            config = config_result.scalar_one_or_none()
+            if config:
+                modules = {
+                    "kitchen_module": config.kitchen_module,
+                    "waiter_module": config.waiter_module,
+                    "owner_dashboard": config.owner_dashboard,
+                    "customer_status_tracking": config.customer_status_tracking,
+                    "menu_management": config.menu_management,
+                    "staff_management": config.staff_management,
+                }
+                owner_can_configure = config.owner_can_configure
 
     await db.commit()
 
@@ -160,6 +179,8 @@ async def verify_otp(
             "role": user.role.value,
             "can_access_kitchen": user.can_access_kitchen,
             "can_access_waiter": user.can_access_waiter,
+            "modules": modules,
+            "owner_can_configure": owner_can_configure,
             "type": "access_token",
         },
         expires_minutes=1440,
@@ -174,6 +195,8 @@ async def verify_otp(
         "restaurant_id": str(user.restaurant_id) if user.restaurant_id else None,
         "can_access_kitchen": user.can_access_kitchen,
         "can_access_waiter": user.can_access_waiter,
+        "modules": modules,
+        "owner_can_configure": owner_can_configure,
     }
 
 

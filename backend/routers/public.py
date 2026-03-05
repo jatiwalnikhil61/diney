@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from core.database import get_db
-from models import Table, Restaurant, MenuCategory, MenuItem, Order, OrderItem, OrderStatus
+from models import Table, Restaurant, MenuCategory, MenuItem, Order, OrderItem, OrderStatus, ProcessConfig
 from schemas import (
     OrderCreate,
     OrderCreateResponse,
@@ -75,7 +75,7 @@ async def get_public_menu(qr_token: str, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.post("/orders/{qr_token}", response_model=OrderCreateResponse, status_code=201)
+@router.post("/orders/{qr_token}", status_code=201)
 async def create_public_order(
     qr_token: str,
     data: OrderCreate,
@@ -106,12 +106,26 @@ async def create_public_order(
                 f"Menu item {order_item.menu_item_id} not found, unavailable, or doesn't belong to this restaurant",
             )
 
-    # Create order
+    # Fetch process config for snapshot
+    config_result = await db.execute(
+        select(ProcessConfig).where(ProcessConfig.restaurant_id == restaurant.id)
+    )
+    config = config_result.scalar_one_or_none()
+
+    # Build process snapshot (only order-flow-relevant fields)
+    process_snapshot = {
+        "kitchen_module": config.kitchen_module if config else True,
+        "waiter_module": config.waiter_module if config else True,
+        "customer_status_tracking": config.customer_status_tracking if config else True,
+    }
+
+    # Create order with snapshot
     order = Order(
         restaurant_id=restaurant.id,
         table_id=table.id,
         status=OrderStatus.PLACED,
         customer_note=data.customer_note,
+        process_snapshot=process_snapshot,
     )
     db.add(order)
     await db.flush()  # Get order.id
@@ -166,11 +180,12 @@ async def create_public_order(
     except Exception as e:
         print(f"Socket.IO emit error: {e}")
 
-    return OrderCreateResponse(
-        order_id=order.id,
-        status=order.status,
-        estimated_minutes=max_prep_time,
-    )
+    return {
+        "order_id": str(order.id),
+        "status": order.status.value,
+        "estimated_minutes": max_prep_time,
+        "show_status_page": process_snapshot["customer_status_tracking"],
+    }
 
 
 @router.get("/orders/{order_id}/status", response_model=OrderStatusResponse)
@@ -179,6 +194,11 @@ async def get_order_status(order_id: UUID, db: AsyncSession = Depends(get_db)):
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Order not found")
+
+    # Check if status tracking is enabled for this order
+    if order.process_snapshot and not order.process_snapshot.get("customer_status_tracking", True):
+        raise HTTPException(404, "Status tracking is not available for this order")
+
     return OrderStatusResponse(
         order_id=order.id,
         status=order.status,

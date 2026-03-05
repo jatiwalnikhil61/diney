@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, String, Boolean, Integer, Numeric, Text, DateTime,
-    ForeignKey, Enum as SAEnum,
+    ForeignKey, Enum as SAEnum, JSON,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -31,14 +31,6 @@ class OrderStatus(str, enum.Enum):
     DELIVERED = "DELIVERED"
 
 
-# Valid status transitions (current → allowed next)
-ORDER_STATUS_TRANSITIONS = {
-    OrderStatus.PLACED: OrderStatus.CONFIRMED,
-    OrderStatus.CONFIRMED: OrderStatus.PREPARING,
-    OrderStatus.PREPARING: OrderStatus.READY,
-    OrderStatus.READY: OrderStatus.PICKED_UP,
-    OrderStatus.PICKED_UP: OrderStatus.DELIVERED,
-}
 
 
 def utcnow():
@@ -61,6 +53,7 @@ class Restaurant(Base):
     menu_items = relationship("MenuItem", back_populates="restaurant", cascade="all, delete-orphan")
     tables = relationship("Table", back_populates="restaurant", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="restaurant", cascade="all, delete-orphan")
+    process_config = relationship("ProcessConfig", back_populates="restaurant", uselist=False, cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -151,6 +144,7 @@ class Order(Base):
     )
     total_amount = Column(Numeric(10, 2))
     customer_note = Column(Text, nullable=True)
+    process_snapshot = Column(JSON, nullable=True)  # module config snapshot at order time
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -172,3 +166,27 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     menu_item = relationship("MenuItem")
+
+
+class ProcessConfig(Base):
+    __tablename__ = "process_configs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    restaurant_id = Column(UUID(as_uuid=True), ForeignKey("restaurants.id"), nullable=False, unique=True)
+
+    # Module toggles (all ON by default)
+    kitchen_module = Column(Boolean, default=True, nullable=False)
+    waiter_module = Column(Boolean, default=True, nullable=False)
+    owner_dashboard = Column(Boolean, default=True, nullable=False)
+    customer_status_tracking = Column(Boolean, default=True, nullable=False)
+    menu_management = Column(Boolean, default=True, nullable=False)
+    staff_management = Column(Boolean, default=True, nullable=False)
+
+    # Owner self-service toggle (super admin grants this)
+    owner_can_configure = Column(Boolean, default=False, nullable=False)
+
+    # Audit
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    restaurant = relationship("Restaurant", back_populates="process_config")

@@ -26,6 +26,12 @@ class Settings(BaseSettings):
 
     STORAGE_BACKEND: str = "local"
 
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_BUCKET_NAME: str = "diney-uploads"
+    R2_PUBLIC_URL: str = ""
+
     DEV_MODE: bool = True
 
     SEED_PHONE: str = "+91XXXXXXXXXX"

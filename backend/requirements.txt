@@ -11,3 +11,4 @@ pydantic-settings
 python-multipart
 python-socketio
 python-engineio
+boto3

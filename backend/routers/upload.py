@@ -2,17 +2,15 @@
 File upload router — image uploads for menu items.
 """
 
-import os
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import get_settings
 from core.database import get_db
 from core.dependencies import get_current_user, get_restaurant_id
 from models import User
+from services.storage_service import get_storage
 
-settings = get_settings()
 router = APIRouter(prefix="/api", tags=["Upload"])
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
@@ -39,15 +37,7 @@ async def upload_file(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(400, "File too large. Maximum 5MB.")
 
-    # Save locally
-    upload_dir = os.path.join("static", "uploads", str(restaurant_id))
-    os.makedirs(upload_dir, exist_ok=True)
-
-    filename = f"{uuid.uuid4()}.{ext}"
-    filepath = os.path.join(upload_dir, filename)
-
-    with open(filepath, "wb") as f:
-        f.write(content)
-
-    url = f"http://localhost:8000/{filepath}"
+    key = f"uploads/{restaurant_id}/{uuid.uuid4()}.{ext}"
+    storage = get_storage()
+    url = await storage.save(content, key, file.content_type)
     return {"url": url}

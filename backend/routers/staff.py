@@ -12,11 +12,15 @@ from sqlalchemy import select
 
 from core.config import get_settings
 from core.database import get_db
-from core.dependencies import get_current_user, get_restaurant_id
+from core.dependencies import get_current_user, get_restaurant_id, require_module
 from models import User, UserRole, Restaurant
 
 settings = get_settings()
-router = APIRouter(prefix="/api/staff", tags=["Staff"])
+router = APIRouter(
+    prefix="/api/staff",
+    tags=["Staff"],
+    dependencies=[Depends(require_module("staff_management"))],
+)
 
 
 # ─── Schemas ───────────────────────────────────────────────

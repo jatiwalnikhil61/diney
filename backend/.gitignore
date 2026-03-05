@@ -1,4 +1,3 @@
-cat > .gitignore << 'EOF'
 # Python
 __pycache__/
 *.pyc
@@ -11,19 +10,14 @@ venv/
 .env
 *.env
 
-# Alembic (keep structure, ignore local db)
+# Database
 *.db
 *.sqlite
 
 # Local file uploads
-backend/static/uploads/
-
-# Node
-node_modules/
-dist/
-.DS_Store
+static/uploads/
 
 # IDE
 .vscode/
 .idea/
-EOF
+.DS_Store
