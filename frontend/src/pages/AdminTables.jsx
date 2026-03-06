@@ -146,7 +146,7 @@ export default function AdminTables() {
                         {tables.map(table => (
                             <div key={table.id} className="card" style={{
                                 padding: 24, opacity: table.is_active ? 1 : 0.6,
-                                borderColor: table.is_active ? (isDark ? '#34D399' : '#86EFAC') : 'var(--border-light)',
+                                borderColor: table.is_active ? (isDark ? '#86EFAC' : '#34D399') : 'var(--border-light)',
                                 borderWidth: 2,
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>

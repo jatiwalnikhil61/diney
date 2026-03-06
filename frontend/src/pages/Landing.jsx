@@ -9,6 +9,7 @@ import {
   IconTwitter, IconLinkedIn, IconInstagram,
 } from '../components/LandingIcons'
 import { useScrollReveal } from '../hooks/useScrollReveal'
+import ThemeToggle from '../components/ThemeToggle'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,7 @@ export default function Landing() {
               <li><a href="#pricing" onClick={e => { e.preventDefault(); scrollTo('pricing') }}>Pricing</a></li>
             </ul>
             <div className="lp-nav-cta">
+              <ThemeToggle className="lp-theme-toggle" />
               <button className="lp-btn lp-btn-ghost" onClick={() => navigate('/login')}>Staff Login</button>
               <button className="lp-btn lp-btn-primary" onClick={() => scrollTo('demo')}>Book a Demo</button>
             </div>

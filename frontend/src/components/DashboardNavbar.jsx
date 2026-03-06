@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useTheme } from '../context/ThemeContext'
+import ThemeToggle from './ThemeToggle'
 import api from '../services/api'
 
 export default function DashboardNavbar() {
     const location = useLocation()
     const navigate = useNavigate()
     const { role, canAccessKitchen, canAccessWaiter, logout, restaurantName, setSelectedRestaurant, effectiveRestaurantId } = useAuth()
-    const { isDark, toggleDark } = useTheme()
     const [restaurants, setRestaurants] = useState([])
     const [logoUrl, setLogoUrl] = useState(null)
     const [menuOpen, setMenuOpen] = useState(false)
@@ -108,13 +107,7 @@ export default function DashboardNavbar() {
                             {item.label}
                         </Link>
                     ))}
-                    <button
-                        onClick={toggleDark}
-                        className="ml-1 p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors cursor-pointer"
-                        title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-                    >
-                        {isDark ? '☀️' : '🌙'}
-                    </button>
+                    <ThemeToggle className="ml-1" />
                     <button
                         onClick={handleLogout}
                         className="ml-1 px-3 py-1.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
@@ -171,12 +164,7 @@ export default function DashboardNavbar() {
                             {item.label}
                         </Link>
                     ))}
-                    <button
-                        onClick={toggleDark}
-                        className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
-                    >
-                        {isDark ? '☀️ Light mode' : '🌙 Dark mode'}
-                    </button>
+                    <ThemeToggle style={{ width: '100%', justifyContent: 'flex-start', padding: '8px 12px', borderRadius: 8 }} />
                     <button
                         onClick={handleLogout}
                         className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"

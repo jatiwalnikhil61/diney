@@ -278,11 +278,11 @@ export default function SuperAdminRestaurantDetail() {
                                             <span className={`badge ${s.role === 'OWNER' ? 'badge-owner' : s.role === 'CHEF' ? 'badge-chef' : 'badge-waiter'}`}
                                                 style={{
                                                     background: isDark
-                                                        ? (s.role === 'OWNER' ? 'rgba(124,58,237,0.15)' : s.role === 'CHEF' ? 'rgba(234,88,12,0.15)' : 'rgba(37,99,235,0.15)')
-                                                        : (s.role === 'OWNER' ? '#f3e8ff' : s.role === 'CHEF' ? '#fff7ed' : '#eff6ff'),
+                                                        ? (s.role === 'OWNER' ? '#f3e8ff' : s.role === 'CHEF' ? '#fff7ed' : '#eff6ff')
+                                                        : (s.role === 'OWNER' ? 'rgba(124,58,237,0.15)' : s.role === 'CHEF' ? 'rgba(234,88,12,0.15)' : 'rgba(37,99,235,0.15)'),
                                                     color: isDark
-                                                        ? (s.role === 'OWNER' ? '#C4B5FD' : s.role === 'CHEF' ? '#FDBA74' : '#93C5FD')
-                                                        : (s.role === 'OWNER' ? '#7e22ce' : s.role === 'CHEF' ? '#c2410c' : '#1d4ed8'),
+                                                        ? (s.role === 'OWNER' ? '#7e22ce' : s.role === 'CHEF' ? '#c2410c' : '#1d4ed8')
+                                                        : (s.role === 'OWNER' ? '#C4B5FD' : s.role === 'CHEF' ? '#FDBA74' : '#93C5FD'),
                                                 }}>
                                                 {s.role}
                                             </span>

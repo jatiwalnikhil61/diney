@@ -1,27 +1,108 @@
 /* ═══════════════════════════════════════════════════════════
-   Diney Design System — Indian Spice Palette
+   Diney Design System
    Fonts: Playfair Display (headings) + DM Sans (body/UI)
+   Theme: data-theme="light" | data-theme="dark" on <html>
    ═══════════════════════════════════════════════════════════ */
 
-/* ─── CSS Custom Properties ──────────────────────────────── */
-:root {
-  /* Brand – Indian Spice Warmth */
-  --saffron: #F59E0B;
-  --saffron-dark: #D97706;
-  --saffron-light: #FEF9EC;
-  --saffron-ring: rgba(245, 158, 11, 0.18);
+/* ─── THEME TRANSITION ───────────────────────────────────── */
+/* Edit the duration (0.4s) and easing below to tune the speed.
+   The .theme-transitioning class is added to <html> only during
+   a toggle, so normal hover/animation transitions are unaffected. */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition:
+    background-color 0.8s ease,
+    color            0.8s ease,
+    border-color     0.8s ease,
+    box-shadow       0.8s ease !important;
+}
 
-  --cardamom: #1B2E1B;
-  /* deep dark green – sidebar bg */
-  --cardamom-mid: #243824;
+/* ─── LIGHT MODE (default) ───────────────────────────────── */
+:root,
+[data-theme="light"] {
+  /* ── Page backgrounds ── */
+  --bg:           #FFFFFF;
+  --bg-secondary: #F5F5F5;
+  --bg-elevated:  #EFEFEF;
+
+  /* ── Text ── */
+  --text-primary:   #111111;
+  --text-secondary: #444444;
+  --text-muted:     #888888;
+
+  /* ── Surfaces (match page — light on white page) ── */
+  --surface:      #F5F5F5;
+  --surface-text: #111111;
+
+  /* ── Card ── */
+  --card-bg:     #F5F5F5;
+  --card-text:   #111111;
+  --card-border: #E0E0E0;
+
+  /* ── Sidebar ── */
+  --sidebar-bg:   #F5F5F5;
+  --sidebar-text: #111111;
+
+  /* ── Navbar ── */
+  --navbar-bg:   #FFFFFF;
+  --navbar-text: #111111;
+
+  /* ── Modal ── */
+  --modal-bg:   #FFFFFF;
+  --modal-text: #111111;
+
+  /* ── Badges (neutral/generic) ── */
+  --badge-bg:   #E0E0E0;
+  --badge-text: #111111;
+
+  /* ── Dropdowns ── */
+  --dropdown-bg:   #FFFFFF;
+  --dropdown-text: #111111;
+
+  /* ── Inputs ── */
+  --input-bg:     #F5F5F5;
+  --input-border: #CCCCCC;
+  --input-text:   #111111;
+
+  /* ── Borders & shadows ── */
+  --border:       #E0E0E0;
+  --border-light: #EEEEEE;
+  --shadow:       rgba(0,0,0,0.08);
+  --shadow-sm:    0 1px 2px rgba(0,0,0,0.08);
+  --shadow-card:  0 2px 8px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg:    0 8px 24px rgba(0,0,0,0.14);
+  --shadow-xl:    0 16px 40px rgba(0,0,0,0.16);
+
+  /* ── Chart colors (for recharts — on light card bg #F5F5F5 in light mode) ── */
+  --chart-grid:           rgba(0,0,0,0.07);
+  --chart-axis:           rgba(0,0,0,0.40);
+  --chart-tooltip-bg:     #FFFFFF;
+  --chart-tooltip-text:   #111111;
+  --chart-tooltip-border: #E0E0E0;
+  --chart-bar-default:    rgba(245,158,11,0.25);
+  --chart-bar-busiest:    #F59E0B;
+
+  /* ── Brand / spice palette (NEVER change between modes) ── */
+  --saffron:       #F59E0B;
+  --saffron-dark:  #D97706;
+  --saffron-light: rgba(245,158,11,0.15);
+  --saffron-ring:  rgba(245,158,11,0.22);
+
+  --cardamom:       #1B2E1B;
+  --cardamom-mid:   #243824;
   --cardamom-light: #2F4A2F;
 
-  --cream: #FFFBF5;
-  /* warm off-white – page bg */
+  --cream:        #FFFBF5;
+  --cream-dark:   #F5F0EB;
+  --cream-border: #EDE8E1;
+
   --white: #FFFFFF;
 
-  /* Neutrals (warm stone) */
-  --stone-50: #FAFAF9;
+  /* ── Stone neutrals (kept for backward compat in JSX) ── */
+  --stone-50:  #FAFAF9;
   --stone-100: #F5F0EB;
   --stone-200: #E8E3DC;
   --stone-300: #D4CEC6;
@@ -32,31 +113,20 @@
   --stone-800: #2A2826;
   --stone-900: #1C1A18;
 
-  /* Semantic shortcuts */
-  --text-primary: var(--stone-900);
-  --text-secondary: var(--stone-600);
-  --text-muted: var(--stone-400);
-  --border: var(--stone-200);
-  --border-light: var(--stone-100);
-
-  /* Cream surface colors */
-  --cream-border: #EDE8E1;
-  --cream-dark: #F5F0EB;
-
-  /* Font families */
+  /* ── Font families ── */
   --font-display: 'Playfair Display', Georgia, serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
 
-  /* Font size scale */
-  --text-xs: 11px;
-  --text-sm: 13px;
+  /* ── Font size scale ── */
+  --text-xs:   11px;
+  --text-sm:   13px;
   --text-base: 14px;
-  --text-lg: 16px;
-  --text-xl: 18px;
-  --text-2xl: 22px;
-  --text-3xl: 28px;
+  --text-lg:   16px;
+  --text-xl:   18px;
+  --text-2xl:  22px;
+  --text-3xl:  28px;
 
-  /* Spacing scale */
+  /* ── Spacing ── */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -65,42 +135,140 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  /* Layout */
+  /* ── Layout ── */
   --sidebar-width: 260px;
 
-  /* Radii */
-  --radius: 10px;
+  /* ── Radii ── */
+  --radius:    10px;
   --radius-sm: 6px;
   --radius-lg: 14px;
   --radius-xl: 16px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.10);
-  --shadow-xl: 0 8px 40px rgba(0, 0, 0, 0.14);
-
-  /* Transitions */
+  /* ── Transitions ── */
   --transition-base: 0.22s ease;
 }
 
-/* ─── Typography ─────────────────────────────────────────── */
+/* ─── DARK MODE ──────────────────────────────────────────── */
+[data-theme="dark"] {
+  /* ── Page backgrounds ── */
+  --bg:           #000000;
+  --bg-secondary: #0A0A0A;
+  --bg-elevated:  #141414;
+
+  /* ── Text ── */
+  --text-primary:   #F5F5F5;
+  --text-secondary: #BBBBBB;
+  --text-muted:     #777777;
+
+  /* ── Surfaces (match page — dark on black page) ── */
+  --surface:      #111111;
+  --surface-text: #F5F5F5;
+
+  /* ── Card ── */
+  --card-bg:     #111111;
+  --card-text:   #F5F5F5;
+  --card-border: #222222;
+
+  /* ── Sidebar ── */
+  --sidebar-bg:   #0A0A0A;
+  --sidebar-text: #F5F5F5;
+
+  /* ── Navbar ── */
+  --navbar-bg:   #000000;
+  --navbar-text: #F5F5F5;
+
+  /* ── Modal ── */
+  --modal-bg:   #111111;
+  --modal-text: #F5F5F5;
+
+  /* ── Badges (neutral/generic) ── */
+  --badge-bg:   #222222;
+  --badge-text: #F5F5F5;
+
+  /* ── Dropdowns ── */
+  --dropdown-bg:   #111111;
+  --dropdown-text: #F5F5F5;
+
+  /* ── Inputs ── */
+  --input-bg:     #111111;
+  --input-border: #333333;
+  --input-text:   #F5F5F5;
+
+  /* ── Borders & shadows ── */
+  --border:       #222222;
+  --border-light: #1A1A1A;
+  --shadow:       rgba(0,0,0,0.40);
+  --shadow-sm:    0 1px 2px rgba(0,0,0,0.30);
+  --shadow-card:  0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.40), 0 1px 3px rgba(0,0,0,0.30);
+  --shadow-lg:    0 8px 24px rgba(0,0,0,0.45);
+  --shadow-xl:    0 16px 40px rgba(0,0,0,0.50);
+
+  /* ── Chart colors (on dark card bg #111111 in dark mode) ── */
+  --chart-grid:           rgba(255,255,255,0.08);
+  --chart-axis:           rgba(255,255,255,0.40);
+  --chart-tooltip-bg:     #1A1A1A;
+  --chart-tooltip-text:   #F5F5F5;
+  --chart-tooltip-border: #333333;
+  --chart-bar-default:    rgba(245,158,11,0.30);
+  --chart-bar-busiest:    #F59E0B;
+
+  /* ── Stone neutrals (remapped for dark, used by existing JSX) ── */
+  --stone-50:  #0A0A0A;
+  --stone-100: #141414;
+  --stone-200: #1E1E1E;
+  --stone-300: #282828;
+  --stone-400: #777777;
+  --stone-500: #999999;
+  --stone-600: #BBBBBB;
+  --stone-700: #CCCCCC;
+  --stone-800: #E0E0E0;
+  --stone-900: #F5F5F5;
+
+  /* ── Brand stays constant ── */
+  --saffron-light: rgba(245,158,11,0.15);
+  --saffron-ring:  rgba(245,158,11,0.22);
+  --cream-border:  #1A1A1A;
+  --cream-dark:    #0A0A0A;
+  --cream:         #000000;
+  --white:         #111111;
+}
+
+/* ─── GLOBAL BODY ────────────────────────────────────────── */
 body {
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   color: var(--text-primary);
-  background: var(--cream);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 
 .font-display,
-h1,
-h2,
-h3 {
+h1, h2, h3 {
   font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
 }
 
-/* ─── App Shell (sidebar layout) ────────────────────────── */
+/* ─── SMOOTH THEME TRANSITION ────────────────────────────── */
+*, *::before, *::after {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* Disable transitions on elements where it causes glitches */
+svg *, .no-theme-transition,
+button, a, input, select, textarea {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease,
+    box-shadow 0.14s ease,
+    transform 0.14s ease;
+}
+
+/* ─── APP SHELL ──────────────────────────────────────────── */
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -110,47 +278,43 @@ h3 {
   margin-left: var(--sidebar-width);
   flex: 1;
   min-height: 100vh;
-  background: var(--cream);
+  background: var(--bg);
   transition: margin-left var(--transition-base), padding-left var(--transition-base);
 }
 
-/* ─── Sidebar ────────────────────────────────────────────── */
+/* ─── SIDEBAR ────────────────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-width);
-  background: var(--cardamom);
+  background: var(--sidebar-bg);
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  top: 0; left: 0; bottom: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   z-index: 100;
   scrollbar-width: none;
-  transition: transform var(--transition-base);
+  transition: transform var(--transition-base), background-color 0.2s ease;
 }
 
-.sidebar::-webkit-scrollbar {
-  display: none;
-}
+.sidebar::-webkit-scrollbar { display: none; }
 
 .sidebar-brand {
   padding: 22px 20px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(128,128,128,0.15);
 }
 
 .sidebar-brand-name {
   font-family: 'Playfair Display', serif;
   font-size: 21px;
   font-weight: 700;
-  color: #FFFFFF;
+  color: var(--sidebar-text);
   letter-spacing: 0.3px;
   line-height: 1;
 }
 
 .sidebar-brand-sub {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(128,128,128,0.9);
   margin-top: 3px;
   font-family: 'DM Sans', sans-serif;
   letter-spacing: 0.05em;
@@ -166,7 +330,7 @@ h3 {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(128,128,128,1);
   padding: 0 10px;
   margin: 14px 0 4px;
 }
@@ -177,7 +341,7 @@ h3 {
   gap: 9px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.60);
+  color: rgba(128,128,128,1);
   font-size: 14px;
   font-weight: 500;
   font-family: 'DM Sans', sans-serif;
@@ -192,8 +356,8 @@ h3 {
 }
 
 .sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.90);
+  background: rgba(128,128,128,0.10);
+  color: var(--sidebar-text);
 }
 
 .sidebar-item.active {
@@ -208,23 +372,21 @@ h3 {
   opacity: 0.75;
 }
 
-.sidebar-item.active .sidebar-icon {
-  opacity: 1;
-}
+.sidebar-item.active .sidebar-icon { opacity: 1; }
 
 .sidebar-footer {
   padding: 12px 10px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid rgba(128,128,128,0.15);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
 .sidebar-restaurant-select {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(128,128,128,0.10);
+  border: 1px solid rgba(128,128,128,0.20);
   border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.80);
+  color: var(--sidebar-text);
   font-size: 12px;
   font-family: 'DM Sans', sans-serif;
   padding: 6px 8px;
@@ -234,7 +396,7 @@ h3 {
   margin-bottom: 6px;
 }
 
-/* ─── Page Layout ────────────────────────────────────────── */
+/* ─── PAGE LAYOUT ────────────────────────────────────────── */
 .page-header {
   padding: 24px 28px 0;
 }
@@ -257,7 +419,7 @@ h3 {
   padding: 20px 28px 40px;
 }
 
-/* ─── Buttons ────────────────────────────────────────────── */
+/* ─── BUTTONS ────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -270,79 +432,85 @@ h3 {
   font-family: 'DM Sans', sans-serif;
   cursor: pointer;
   border: none;
-  transition: background 0.14s, opacity 0.14s, box-shadow 0.14s;
   text-decoration: none;
   white-space: nowrap;
   line-height: 1;
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-primary {
   background: var(--saffron);
   color: #FFFFFF;
-  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 1px 3px rgba(245,158,11,0.25);
 }
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--saffron-dark);
-}
+.btn-primary:hover:not(:disabled) { background: var(--saffron-dark); }
 
 .btn-secondary {
-  background: var(--stone-100);
-  color: var(--stone-700);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   border: 1px solid var(--border);
 }
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--stone-200);
-}
+.btn-secondary:hover:not(:disabled) { background: var(--bg-elevated); }
 
 .btn-ghost {
   background: transparent;
-  color: var(--stone-600);
+  color: var(--text-secondary);
 }
-
-.btn-ghost:hover:not(:disabled) {
-  background: var(--stone-100);
-}
+.btn-ghost:hover:not(:disabled) { background: var(--bg-secondary); }
 
 .btn-danger {
-  background: #FEE2E2;
+  background: rgba(220,38,38,0.12);
   color: #DC2626;
-  border: 1px solid #FECACA;
+  border: 1px solid rgba(220,38,38,0.25);
+}
+.btn-danger:hover:not(:disabled) { background: rgba(220,38,38,0.20); }
+
+.btn-sm  { padding: 5px 10px; font-size: 13px; }
+.btn-lg  { padding: 11px 22px; font-size: 15px; }
+
+/* ─── THEME TOGGLE BUTTON ────────────────────────────────── */
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #222222;
+  background: #FFFFFF;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.theme-toggle:hover {
+  background: #F0F0F0;
+}
+[data-theme="dark"] .theme-toggle {
+  background: #111111;
+  border-color: #FFFFFF;
+  color: #FFFFFF;
+}
+[data-theme="dark"] .theme-toggle:hover {
+  background: #1E1E1E;
 }
 
-.btn-danger:hover:not(:disabled) {
-  background: #FECACA;
-}
-
-.btn-sm {
-  padding: 5px 10px;
-  font-size: 13px;
-}
-
-.btn-lg {
-  padding: 11px 22px;
-  font-size: 15px;
-}
-
-/* ─── Cards ──────────────────────────────────────────────── */
+/* ─── CARDS ──────────────────────────────────────────────── */
 .card {
-  background: var(--white);
+  background: var(--card-bg);
+  color: var(--card-text);
   border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--card-border);
   box-shadow: var(--shadow-card);
   padding: 20px;
 }
 
 .stat-card {
-  background: var(--white);
+  background: var(--card-bg);
+  color: var(--card-text);
   border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--card-border);
   box-shadow: var(--shadow-card);
   padding: 20px;
 }
@@ -352,7 +520,7 @@ h3 {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: rgba(128,128,128,0.7);
   margin-bottom: 8px;
 }
 
@@ -360,43 +528,42 @@ h3 {
   font-family: 'Playfair Display', serif;
   font-size: 28px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--card-text);
   line-height: 1;
 }
 
 .stat-card .stat-sub {
   font-size: 12px;
-  color: var(--text-muted);
+  color: rgba(128,128,128,0.7);
   margin-top: 6px;
 }
 
 .menu-card {
-  background: var(--white);
+  background: var(--card-bg);
+  color: var(--card-text);
   border-radius: var(--radius-xl);
-  border: 1px solid var(--cream-border);
+  border: 1px solid var(--card-border);
   box-shadow: var(--shadow-card);
   overflow: hidden;
   transition: box-shadow 0.18s;
 }
-
-.menu-card:hover {
-  box-shadow: var(--shadow-lg);
-}
+.menu-card:hover { box-shadow: var(--shadow-lg); }
 
 .order-card {
-  background: var(--white);
+  background: var(--card-bg);
+  color: var(--card-text);
   border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--card-border);
   box-shadow: var(--shadow-card);
   padding: 16px;
   transition: box-shadow 0.18s;
 }
 
-/* ─── Tables ─────────────────────────────────────────────── */
+/* ─── TABLES ─────────────────────────────────────────────── */
 .table-wrapper {
-  background: var(--white);
+  background: var(--card-bg);
   border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--card-border);
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
@@ -409,8 +576,8 @@ h3 {
 }
 
 .ds-table thead tr {
-  background: var(--stone-50);
-  border-bottom: 1px solid var(--border);
+  background: rgba(128,128,128,0.12);
+  border-bottom: 1px solid rgba(128,128,128,0.20);
 }
 
 .ds-table thead th {
@@ -420,28 +587,22 @@ h3 {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: rgba(128,128,128,0.7);
 }
 
 .ds-table tbody tr {
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid rgba(128,128,128,0.10);
   transition: background 0.10s;
 }
-
-.ds-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.ds-table tbody tr:hover {
-  background: var(--stone-50);
-}
+.ds-table tbody tr:last-child { border-bottom: none; }
+.ds-table tbody tr:hover { background: rgba(128,128,128,0.07); }
 
 .ds-table tbody td {
   padding: 12px 16px;
-  color: var(--text-secondary);
+  color: var(--card-text);
 }
 
-/* ─── Status Badges ──────────────────────────────────────── */
+/* ─── STATUS BADGES (brand colors — never change) ────────── */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -452,83 +613,47 @@ h3 {
   font-weight: 600;
   font-family: 'DM Sans', sans-serif;
 }
-
 .badge::before {
   content: '';
-  width: 6px;
-  height: 6px;
+  width: 6px; height: 6px;
   border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
 }
 
-.badge-placed {
-  background: #EFF6FF;
-  color: #2563EB;
-}
+.badge-placed    { background: #EFF6FF; color: #2563EB; }
+.badge-confirmed { background: #F5F3FF; color: #7C3AED; }
+.badge-preparing { background: #FFFBEB; color: #B45309; }
+.badge-ready     { background: #ECFDF5; color: #059669; }
+.badge-pickedup  { background: #EEF2FF; color: #4338CA; }
+.badge-delivered { background: #F0FDF4; color: #16A34A; }
+.badge-active    { background: #ECFDF5; color: #059669; }
+.badge-inactive  { background: #FEF2F2; color: #DC2626; }
 
-.badge-confirmed {
-  background: #F5F3FF;
-  color: #7C3AED;
-}
-
-.badge-preparing {
-  background: #FFFBEB;
-  color: #B45309;
-}
-
-.badge-ready {
-  background: #ECFDF5;
-  color: #059669;
-}
-
-.badge-pickedup {
-  background: #EEF2FF;
-  color: #4338CA;
-}
-
-.badge-delivered {
-  background: #F0FDF4;
-  color: #16A34A;
-}
-
-.badge-active {
-  background: #ECFDF5;
-  color: #059669;
-}
-
-.badge-inactive {
-  background: #FEF2F2;
-  color: #DC2626;
-}
-
-/* ─── Form Inputs ────────────────────────────────────────── */
+/* ─── FORM INPUTS ────────────────────────────────────────── */
 .form-input {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-sm);
   font-size: 14px;
   font-family: 'DM Sans', sans-serif;
-  color: var(--text-primary);
-  background: var(--white);
+  color: var(--input-text);
+  background: var(--input-bg);
   outline: none;
   transition: border-color 0.14s, box-shadow 0.14s;
 }
-
 .form-input:focus {
   border-color: var(--saffron);
   box-shadow: 0 0 0 3px var(--saffron-ring);
 }
+.form-input::placeholder { color: var(--text-muted); }
 
-.form-input::placeholder {
-  color: var(--text-muted);
-}
-
-/* ─── Page Header Bar (top of page within content area) ─── */
+/* ─── PAGE HEADER BAR ────────────────────────────────────── */
 .page-header-bar {
-  background: var(--white);
-  border-bottom: 1px solid var(--border-light);
+  background: var(--navbar-bg);
+  color: var(--navbar-text);
+  border-bottom: 1px solid rgba(128,128,128,0.15);
   padding: 16px 28px;
   display: flex;
   align-items: center;
@@ -536,12 +661,12 @@ h3 {
   flex-wrap: wrap;
   gap: 12px;
 }
-
 .page-header-bar .page-title {
   font-size: 22px;
+  color: var(--navbar-text);
 }
 
-/* ─── Live indicator pill ────────────────────────────────── */
+/* ─── LIVE INDICATOR PILL ────────────────────────────────── */
 .live-pill {
   display: inline-flex;
   align-items: center;
@@ -553,235 +678,22 @@ h3 {
   background: #ECFDF5;
   color: #059669;
 }
-
-.live-pill.offline {
-  background: #FEF2F2;
-  color: #DC2626;
-}
-
+.live-pill.offline { background: #FEF2F2; color: #DC2626; }
 .live-pill::before {
   content: '';
-  width: 6px;
-  height: 6px;
+  width: 6px; height: 6px;
   border-radius: 50%;
   background: currentColor;
 }
 
-/* ─── Dark mode ──────────────────────────────────────────── */
-
-/* Variable remapping — auto-flips any inline style using var() */
-.dark {
-  /* Surfaces */
-  --white: #243830;
-  --cream: #1A2A24;
-  --cream-dark: #1E3229;
-  --cream-border: rgba(255, 255, 255, 0.08);
-
-  /* Stone scale — fully inverted for dark mode */
-  --stone-50: #1A2F25;
-  --stone-100: #1E3229;
-  --stone-200: rgba(255, 255, 255, 0.10);
-  --stone-300: rgba(255, 255, 255, 0.15);
-  --stone-400: #7A9E8E;
-  /* muted text in dark — becomes readable green-grey */
-  --stone-500: #9AB5A8;
-  /* secondary text — lighter */
-  --stone-600: #B8C4BC;
-  /* body text — maps to light body text */
-  --stone-700: #D4DED8;
-  /* labels/headings — bright on dark */
-  --stone-800: #E8F0EC;
-  /* near-white text */
-  --stone-900: #F0EDE8;
-  /* primary text — same as --text-primary */
-
-  /* Semantic shortcuts (derived from stone) */
-  --text-primary: #F0EDE8;
-  --text-secondary: #B8C4BC;
-  --text-muted: #7A9E8E;
-
-  /* Borders & shadows */
-  --border: rgba(255, 255, 255, 0.10);
-  --border-light: rgba(255, 255, 255, 0.06);
-  --saffron-light: rgba(245, 158, 11, 0.15);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.20), 0 2px 8px rgba(0, 0, 0, 0.15);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.20), 0 1px 3px rgba(0, 0, 0, 0.15);
-
-  /* Brand colors — flip dark greens to readable light tones */
-  --cardamom: #C8D9CF;
-  /* was deep green — now light sage (readable on dark bg) */
-  --cardamom-mid: #9AB5A8;
-  --cardamom-light: #7A9E8E;
-  /* was mid green — now readable muted green */
+/* ─── MODALS ─────────────────────────────────────────────── */
+.modal, [role="dialog"] {
+  background: var(--modal-bg);
+  color: var(--modal-text);
+  border: 1px solid var(--card-border);
 }
 
-/* Page and layout backgrounds */
-.dark body,
-.dark .main-content {
-  background: #1A2A24;
-  color: #F0EDE8;
-}
-
-/* Sidebar stays dark green in both themes — protect from cardamom remapping */
-.dark .sidebar {
-  background: #1B2E1B;
-}
-
-.dark .sidebar .sidebar-brand-name {
-  color: #FFFFFF;
-}
-
-/* Page header bar */
-.dark .page-header-bar {
-  background: #1E3229;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-/* Cards */
-.dark .card,
-.dark .stat-card,
-.dark .menu-card,
-.dark .order-card,
-.dark .table-wrapper {
-  background: #243830;
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #F0EDE8;
-}
-
-/* Headings */
-.dark h1,
-.dark h2,
-.dark h3,
-.dark .page-title,
-.dark .stat-value {
-  color: #FDFAF5;
-}
-
-/* Body text */
-.dark p,
-.dark span,
-.dark .stat-label,
-.dark .stat-sub {
-  color: #B8C4BC;
-}
-
-/* Table */
-.dark .ds-table thead tr {
-  background: #1E3229;
-}
-
-.dark .ds-table th {
-  color: #7A9E8E;
-}
-
-.dark .ds-table tbody tr:hover {
-  background: #1E3229;
-}
-
-.dark .ds-table tbody td {
-  color: #B8C4BC;
-  border-bottom-color: rgba(255, 255, 255, 0.06);
-}
-
-/* Form inputs */
-.dark .form-input,
-.dark select,
-.dark textarea {
-  background: #1E3229;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #F0EDE8;
-}
-
-.dark .form-input::placeholder {
-  color: #4A6B5D;
-}
-
-.dark label {
-  color: #B8C4BC;
-}
-
-/* Buttons */
-.dark .btn-secondary {
-  background: #243830;
-  color: #B8C4BC;
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.dark .btn-ghost {
-  color: #B8C4BC;
-}
-
-.dark .btn-ghost:hover {
-  background: #1E3229;
-}
-
-.dark .btn-danger {
-  background: rgba(220, 38, 38, 0.15);
-  color: #FCA5A5;
-  border-color: rgba(220, 38, 38, 0.25);
-}
-
-/* Badges — muted dark backgrounds */
-.dark .badge-placed {
-  background: rgba(37, 99, 235, 0.15);
-  color: #93C5FD;
-}
-
-.dark .badge-confirmed {
-  background: rgba(124, 58, 237, 0.15);
-  color: #C4B5FD;
-}
-
-.dark .badge-preparing {
-  background: rgba(180, 83, 9, 0.15);
-  color: #FCD34D;
-}
-
-.dark .badge-ready {
-  background: rgba(5, 150, 105, 0.15);
-  color: #6EE7B7;
-}
-
-.dark .badge-pickedup {
-  background: rgba(67, 56, 202, 0.15);
-  color: #A5B4FC;
-}
-
-.dark .badge-delivered {
-  background: rgba(22, 163, 74, 0.15);
-  color: #86EFAC;
-}
-
-.dark .badge-active {
-  background: rgba(5, 150, 105, 0.15);
-  color: #6EE7B7;
-}
-
-.dark .badge-inactive {
-  background: rgba(220, 38, 38, 0.15);
-  color: #FCA5A5;
-}
-
-/* Live pill */
-.dark .live-pill {
-  background: rgba(5, 150, 105, 0.15);
-  color: #6EE7B7;
-}
-
-.dark .live-pill.offline {
-  background: rgba(220, 38, 38, 0.15);
-  color: #FCA5A5;
-}
-
-/* Modal */
-.dark .modal,
-.dark [role="dialog"] {
-  background: #243830;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-/* Loading spinner animation */
+/* ─── ANIMATIONS ─────────────────────────────────────────── */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }

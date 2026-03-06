@@ -1,12 +1,32 @@
 from uuid import UUID
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from core.config import get_settings
 from core.database import get_db
-from models import Table, Restaurant, MenuCategory, MenuItem, Order, OrderItem, OrderStatus, ProcessConfig
+from models import Table, Restaurant, MenuCategory, MenuItem, Order, OrderItem, OrderStatus, ProcessConfig, Customer
+
+settings = get_settings()
+
+
+async def _get_customer_id_from_cookie(request: Request, db: AsyncSession) -> UUID | None:
+    """Extract customer_id from customer_token cookie if valid. Returns None if absent/invalid."""
+    token = request.cookies.get("customer_token")
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("type") != "customer":
+            return None
+        customer_id = UUID(payload["sub"])
+        result = await db.execute(select(Customer.id).where(Customer.id == customer_id))
+        return result.scalar_one_or_none()
+    except (JWTError, Exception):
+        return None
 from schemas import (
     OrderCreate,
     OrderCreateResponse,
@@ -79,6 +99,7 @@ async def get_public_menu(qr_token: str, db: AsyncSession = Depends(get_db)):
 async def create_public_order(
     qr_token: str,
     data: OrderCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     if not data.items:
@@ -119,10 +140,14 @@ async def create_public_order(
         "customer_status_tracking": config.customer_status_tracking if config else True,
     }
 
+    # Attach customer if authenticated via cookie
+    customer_id = await _get_customer_id_from_cookie(request, db)
+
     # Create order with snapshot
     order = Order(
         restaurant_id=restaurant.id,
         table_id=table.id,
+        customer_id=customer_id,
         status=OrderStatus.PLACED,
         customer_note=data.customer_note,
         process_snapshot=process_snapshot,

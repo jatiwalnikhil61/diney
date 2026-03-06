@@ -33,7 +33,7 @@ export default function OrderCard({ order, actionLabel, onAction, highlight }) {
                 <StatusBadge status={order.status} />
             </div>
 
-            <p style={{ fontSize: 12, marginBottom: 8, color: isOld ? (isDark ? '#FCA5A5' : '#DC2626') : 'var(--text-muted)', fontWeight: isOld ? 600 : 400 }}>
+            <p style={{ fontSize: 12, marginBottom: 8, color: isOld ? (isDark ? '#DC2626' : '#FCA5A5') : 'var(--text-muted)', fontWeight: isOld ? 600 : 400 }}>
                 {elapsed}
             </p>
 

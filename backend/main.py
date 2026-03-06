@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from jose import jwt, JWTError
 
 from core.config import get_settings
-from routers import restaurants, menu, tables, orders, public, auth, upload, staff, ingestion, analytics, superadmin
+from routers import restaurants, menu, tables, orders, public, auth, upload, staff, ingestion, analytics, superadmin, customer_auth, customer_orders
 
 settings = get_settings()
 
@@ -93,6 +93,8 @@ fastapi_app.include_router(ingestion.router)
 fastapi_app.include_router(analytics.router)
 fastapi_app.include_router(superadmin.router)
 fastapi_app.include_router(public.router)
+fastapi_app.include_router(customer_auth.router)
+fastapi_app.include_router(customer_orders.router)
 
 
 @fastapi_app.get("/", tags=["Health"])

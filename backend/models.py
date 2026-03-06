@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, String, Boolean, Integer, Numeric, Text, DateTime,
-    ForeignKey, Enum as SAEnum, JSON,
+    ForeignKey, Enum as SAEnum, JSON, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -53,6 +53,8 @@ class Restaurant(Base):
     menu_items = relationship("MenuItem", back_populates="restaurant", cascade="all, delete-orphan")
     tables = relationship("Table", back_populates="restaurant", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="restaurant", cascade="all, delete-orphan")
+    customers = relationship("Customer", backref="restaurant_ref", cascade="all, delete-orphan",
+                             foreign_keys="Customer.restaurant_id")
     process_config = relationship("ProcessConfig", back_populates="restaurant", uselist=False, cascade="all, delete-orphan")
 
 
@@ -142,6 +144,7 @@ class Order(Base):
         default=OrderStatus.PLACED,
         nullable=False,
     )
+    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True)
     total_amount = Column(Numeric(10, 2))
     customer_note = Column(Text, nullable=True)
     process_snapshot = Column(JSON, nullable=True)  # module config snapshot at order time
@@ -150,6 +153,7 @@ class Order(Base):
 
     restaurant = relationship("Restaurant", back_populates="orders")
     table = relationship("Table", back_populates="orders")
+    customer = relationship("Customer", back_populates="orders", foreign_keys=[customer_id])
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 
@@ -166,6 +170,35 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     menu_item = relationship("MenuItem")
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    phone = Column(String(20), nullable=False)
+    name = Column(String(100), nullable=True)
+    restaurant_id = Column(UUID(as_uuid=True), ForeignKey("restaurants.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    orders = relationship("Order", back_populates="customer", foreign_keys="Order.customer_id")
+    otp_logs = relationship("CustomerOTPLog", back_populates="customer", cascade="all, delete-orphan")
+
+    __table_args__ = (UniqueConstraint("phone", "restaurant_id", name="uq_customer_phone_restaurant"),)
+
+
+class CustomerOTPLog(Base):
+    __tablename__ = "customer_otp_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    otp = Column(String(6), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    customer = relationship("Customer", back_populates="otp_logs")
 
 
 class ProcessConfig(Base):

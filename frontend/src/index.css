@@ -19,17 +19,18 @@
     animation: fade-in 0.18s ease-out;
 }
 
-/* Dark mode base overrides */
-.dark body { background-color: #111827; color: #f9fafb; }
-.dark .bg-white { background-color: #1f2937 !important; }
-.dark .bg-gray-50 { background-color: #111827 !important; }
-.dark .bg-gray-100 { background-color: #374151 !important; }
-.dark .bg-gray-200 { background-color: #4b5563 !important; }
-.dark .text-gray-900 { color: #f9fafb !important; }
-.dark .text-gray-700 { color: #e5e7eb !important; }
-.dark .text-gray-600 { color: #d1d5db !important; }
-.dark .text-gray-500 { color: #9ca3af !important; }
-.dark .border-gray-100, .dark .border-gray-200 { border-color: #374151 !important; }
+/* Dark mode base overrides (keyed off data-theme attribute on <html>) */
+[data-theme="dark"] body { background-color: #000000; color: #F5F5F5; }
+[data-theme="dark"] .bg-white { background-color: #0A0A0A !important; }
+[data-theme="dark"] .bg-gray-50 { background-color: #000000 !important; }
+[data-theme="dark"] .bg-gray-100 { background-color: #111111 !important; }
+[data-theme="dark"] .bg-gray-200 { background-color: #1A1A1A !important; }
+[data-theme="dark"] .text-gray-900 { color: #F5F5F5 !important; }
+[data-theme="dark"] .text-gray-700 { color: #E0E0E0 !important; }
+[data-theme="dark"] .text-gray-600 { color: #CCCCCC !important; }
+[data-theme="dark"] .text-gray-500 { color: #999999 !important; }
+[data-theme="dark"] .border-gray-100,
+[data-theme="dark"] .border-gray-200 { border-color: #222222 !important; }
 
 /* Hide scrollbar for category tabs */
 .scrollbar-hide {

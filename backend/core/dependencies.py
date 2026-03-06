@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from core.config import get_settings
 from core.database import get_db
-from models import User, UserRole, ProcessConfig
+from models import User, UserRole, ProcessConfig, Customer
 
 settings = get_settings()
 
@@ -100,6 +100,37 @@ async def get_process_config(
         db.add(config)
         await db.flush()
     return config
+
+
+# ─── Customer auth dependency ─────────────────────────────
+
+async def get_current_customer(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Customer:
+    """Decode customer_token JWT from cookie, fetch and return Customer."""
+    token = request.cookies.get("customer_token")
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    try:
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+        if payload.get("type") != "customer":
+            raise HTTPException(401, "Invalid token type")
+        customer_id = payload.get("sub")
+        if not customer_id:
+            raise HTTPException(401, "Invalid token")
+    except JWTError:
+        raise HTTPException(401, "Token expired or invalid")
+
+    result = await db.execute(select(Customer).where(Customer.id == UUID(customer_id)))
+    customer = result.scalar_one_or_none()
+    if not customer:
+        raise HTTPException(401, "Customer not found")
+    return customer
 
 
 def require_module(module_name: str):

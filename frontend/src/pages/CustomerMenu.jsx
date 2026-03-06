@@ -3,10 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import CartDrawer from '../components/CartDrawer'
+import CustomerVerification from '../components/CustomerVerification'
+import CustomerOrderTracker from '../components/CustomerOrderTracker'
+import { useCustomerAuth } from '../context/CustomerAuthContext'
 
 export default function CustomerMenu() {
     const { qrToken } = useParams()
     const navigate = useNavigate()
+    const { customer, loading: authLoading } = useCustomerAuth()
     const [menu, setMenu] = useState(null)
     const [error, setError] = useState(null)
     const [activeCategory, setActiveCategory] = useState(null)
@@ -153,7 +157,8 @@ export default function CustomerMenu() {
         )
     }
 
-    if (!menu) {
+    // Show spinner while menu OR auth are still loading
+    if (!menu || authLoading) {
         return (
             <div className="min-h-screen bg-gray-50 animate-pulse">
                 <div className="bg-white border-b border-gray-100 px-5 pt-6 pb-4">
@@ -178,6 +183,16 @@ export default function CustomerMenu() {
                     ))}
                 </div>
             </div>
+        )
+    }
+
+    // Auth gate — menu is loaded so we have restaurant_id
+    if (!customer) {
+        return (
+            <CustomerVerification
+                restaurantId={String(menu.restaurant_id)}
+                restaurantName={menu.restaurant_name}
+            />
         )
     }
 
@@ -275,6 +290,9 @@ export default function CustomerMenu() {
                     </button>
                 </div>
             )}
+
+            {/* Order tracker — visible to verified customers */}
+            <CustomerOrderTracker restaurantId={String(menu.restaurant_id)} />
 
             {/* Cart Drawer */}
             <CartDrawer

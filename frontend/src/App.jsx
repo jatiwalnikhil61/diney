@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { CustomerAuthProvider } from './context/CustomerAuthContext'
 import { setupInterceptors } from './services/api'
 import PrivateRoute from './components/PrivateRoute'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -66,7 +67,11 @@ function AppRoutes() {
         {/* Public — no sidebar */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/menu/:qrToken" element={<CustomerMenu />} />
+        <Route path="/menu/:qrToken" element={
+            <CustomerAuthProvider>
+                <CustomerMenu />
+            </CustomerAuthProvider>
+        } />
         <Route path="/menu/:qrToken/order/:orderId" element={<OrderStatus />} />
         <Route path="/access-denied" element={<AccessDenied />} />
 

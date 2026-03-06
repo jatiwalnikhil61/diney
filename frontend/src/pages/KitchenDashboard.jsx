@@ -112,7 +112,7 @@ export default function KitchenDashboard() {
                             </h2>
                             <span style={{
                                 fontSize: 12, fontWeight: 700, padding: '1px 8px', borderRadius: 20,
-                                background: col.accent + (isDark ? '30' : '18'), color: col.accent,
+                                background: col.accent + (isDark ? '18' : '30'), color: col.accent,
                             }}>{col.count}</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

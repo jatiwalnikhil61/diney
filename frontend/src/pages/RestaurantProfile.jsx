@@ -154,7 +154,7 @@ export default function RestaurantProfile() {
                     {/* Restaurant Details card */}
                     <div className="card" style={{ width: '100%', padding: 'var(--space-6)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--cardamom)' }}>Restaurant Details</h2>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--card-text)' }}>Restaurant Details</h2>
                             {!editing && (
                                 <button onClick={() => setEditing(true)} className="btn btn-secondary btn-sm">Edit</button>
                             )}
@@ -170,12 +170,12 @@ export default function RestaurantProfile() {
                                 marginBottom: 'var(--space-4)',
                                 borderBottom: i < arr.length - 1 ? '1px solid var(--cream-border)' : 'none',
                             }}>
-                                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--cardamom-light)', marginBottom: 'var(--space-1)' }}>{label}</label>
+                                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 'var(--space-1)' }}>{label}</label>
                                 {editing ? (
                                     <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
                                         placeholder={placeholder} className="form-input" />
                                 ) : (
-                                    <p style={{ fontSize: 'var(--text-base)', color: 'var(--cardamom)', fontWeight: 500, margin: 0 }}>{form[key] || '—'}</p>
+                                    <p style={{ fontSize: 'var(--text-base)', color: 'var(--card-text)', fontWeight: 500, margin: 0 }}>{form[key] || '—'}</p>
                                 )}
                             </div>
                         ))}
@@ -192,7 +192,7 @@ export default function RestaurantProfile() {
 
                     {/* Account Info card */}
                     <div className="card" style={{ width: '100%', padding: 'var(--space-6)' }}>
-                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--cardamom)', marginBottom: 'var(--space-4)' }}>Account Info</h2>
+                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--card-text)', marginBottom: 'var(--space-4)' }}>Account Info</h2>
                         {[
                             { label: 'Owner Email', value: email, mono: false },
                             { label: 'Member Since', value: formatDate(restaurant?.created_at), mono: false },
@@ -204,9 +204,9 @@ export default function RestaurantProfile() {
                                 borderBottom: i < arr.length - 1 ? '1px solid var(--cream-border)' : 'none',
                                 fontSize: 'var(--text-sm)',
                             }}>
-                                <span style={{ color: 'var(--cardamom-light)' }}>{label}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>{label}</span>
                                 <span style={{
-                                    color: 'var(--cardamom)', fontWeight: 500,
+                                    color: 'var(--card-text)', fontWeight: 500,
                                     fontFamily: mono ? 'monospace' : undefined,
                                     fontSize: mono ? 'var(--text-xs)' : 'var(--text-sm)',
                                     wordBreak: mono ? 'break-all' : undefined,
@@ -215,7 +215,7 @@ export default function RestaurantProfile() {
                                 }}>{value}</span>
                             </div>
                         ))}
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--cardamom-light)', fontStyle: 'italic', marginTop: 'var(--space-4)', textAlign: 'center' }}>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 'var(--space-4)', textAlign: 'center' }}>
                             To change your login email or password, contact Diney support.
                         </p>
                     </div>

@@ -60,12 +60,12 @@ export default function AnalyticsDashboard() {
     const { effectiveRestaurantId } = useAuth()
     const { isDark } = useTheme()
 
-    // Theme-aware chart colors
-    const chartGrid = isDark ? 'rgba(255,255,255,0.08)' : '#F0EBE3'
-    const chartAxis = isDark ? '#7A9E8E' : '#A89E94'
-    const tooltipBorder = isDark ? 'rgba(255,255,255,0.12)' : '#E8E3DC'
-    const tooltipBg = isDark ? '#243830' : '#FFFFFF'
-    const barDefault = isDark ? 'rgba(245,158,11,0.35)' : '#FDE68A'
+    // Theme-aware chart colors (light mode = dark card bg, dark mode = light card bg)
+    const chartGrid = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'
+    const chartAxis = isDark ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.40)'
+    const tooltipBorder = isDark ? '#333333' : '#E0E0E0'
+    const tooltipBg = isDark ? '#1A1A1A' : '#FFFFFF'
+    const barDefault = isDark ? 'rgba(245,158,11,0.30)' : 'rgba(245,158,11,0.25)'
     const barBusiest = isDark ? '#F59E0B' : '#D97706'
 
     const dateRange = rangeKey === 'custom'
@@ -218,7 +218,7 @@ export default function AnalyticsDashboard() {
                                 <YAxis tick={{ fontSize: 12, fontFamily: 'DM Sans', fill: chartAxis }} stroke={chartAxis} tickFormatter={v => `₹${v}`} />
                                 <Tooltip formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']}
                                     labelFormatter={formatDate}
-                                    contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: isDark ? '#F0EDE8' : undefined }} />
+                                    contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: isDark ? '#F5F5F5' : '#111111' }} />
                                 <Area type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2} fill="url(#revenueGrad)" />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -244,7 +244,7 @@ export default function AnalyticsDashboard() {
                                     <YAxis tick={{ fontSize: 12, fontFamily: 'DM Sans', fill: chartAxis }} stroke={chartAxis} allowDecimals={false} />
                                     <Tooltip labelFormatter={h => formatHour(h)}
                                         formatter={(v) => [`${v} orders`]}
-                                        contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: isDark ? '#F0EDE8' : undefined }} />
+                                        contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: isDark ? '#F5F5F5' : '#111111' }} />
                                     <Bar dataKey="order_count" radius={[4, 4, 0, 0]}
                                         shape={(props) => {
                                             const { x, y, width, height, payload } = props
