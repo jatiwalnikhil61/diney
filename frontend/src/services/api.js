@@ -18,9 +18,9 @@ api.interceptors.response.use(
     (res) => res,
     (err) => {
         if (err.response?.status === 401 && _logoutFn) {
-            // Don't logout for auth endpoints (login, verify-otp, me)
+            // Don't logout for auth or customer endpoints
             const url = err.config?.url || ''
-            if (!url.includes('/api/auth/')) {
+            if (!url.includes('/api/auth/') && !url.includes('/api/customer/')) {
                 _logoutFn()
                 window.location.href = '/login'
             }
