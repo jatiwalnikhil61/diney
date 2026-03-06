@@ -117,6 +117,7 @@ async def request_otp(data: RequestOTPBody, db: AsyncSession = Depends(get_db)):
 
     # Generate and store OTP
     otp = str(secrets.randbelow(1_000_000)).zfill(6)
+    print(f"[CUSTOMER OTP] phone={data.phone} otp={otp}")
     otp_expiry_minutes = 30 if DEV_MODE else 10
     otp_log = CustomerOTPLog(
         customer_id=customer.id,
