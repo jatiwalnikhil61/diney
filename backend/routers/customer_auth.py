@@ -39,6 +39,10 @@ class VerifyOTPBody(BaseModel):
     name: str | None = None
 
 
+class UpdateNameBody(BaseModel):
+    name: str
+
+
 # ─── Helpers ──────────────────────────────────────────────
 
 def _create_customer_token(customer: Customer) -> str:
@@ -183,6 +187,24 @@ async def verify_otp(data: VerifyOTPBody, response: Response, db: AsyncSession =
     token = _create_customer_token(customer)
     _set_customer_cookie(response, token)
 
+    return {
+        "customer": {
+            "id": str(customer.id),
+            "name": customer.name,
+            "phone": customer.phone,
+        }
+    }
+
+
+@router.post("/update-name")
+async def update_name(data: UpdateNameBody, request: Request, db: AsyncSession = Depends(get_db)):
+    from core.dependencies import get_current_customer
+    customer = await get_current_customer(request, db)
+    if not data.name.strip():
+        raise HTTPException(400, "Name cannot be empty")
+    if customer.name is None:
+        customer.name = data.name.strip()
+        await db.commit()
     return {
         "customer": {
             "id": str(customer.id),

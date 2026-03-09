@@ -24,6 +24,10 @@ def get_valid_transitions(current_status: OrderStatus, process_snapshot: dict | 
     kitchen_on = process_snapshot.get("kitchen_module", True)
     waiter_on = process_snapshot.get("waiter_module", True)
 
+    # CANCELLED and REMOVED are always terminal regardless of config
+    if current_status in (OrderStatus.CANCELLED, OrderStatus.REMOVED):
+        return []
+
     if not kitchen_on:
         # No kitchen → PLACED is terminal
         return []

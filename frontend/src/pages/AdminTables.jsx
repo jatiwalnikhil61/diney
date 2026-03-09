@@ -15,6 +15,9 @@ export default function AdminTables() {
     const [newTableNumber, setNewTableNumber] = useState('')
     const [adding, setAdding] = useState(false)
     const [modalError, setModalError] = useState('')
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null)
+    const [deleting, setDeleting] = useState(false)
+    const [deleteError, setDeleteError] = useState('')
     const canvasRefs = useRef({})
     const { effectiveRestaurantId } = useAuth()
     const { isDark } = useTheme()
@@ -24,9 +27,9 @@ export default function AdminTables() {
             setLoading(true)
             const res = await api.get('/api/tables', { params: { restaurant_id: effectiveRestaurantId } })
             setTables(res.data)
-            // Create refs for each table's hidden canvas
+            // Preserve existing refs (already attached to rendered canvases), only create new ones
             const refs = {}
-            res.data.forEach(t => { refs[t.id] = createRef() })
+            res.data.forEach(t => { refs[t.id] = canvasRefs.current[t.id] || createRef() })
             canvasRefs.current = refs
         } catch {
             setError('Failed to load tables')
@@ -69,17 +72,32 @@ export default function AdminTables() {
         <div id="qr"></div>
         <p>Scan to order</p>
         <p class="brand">Diney</p>
-        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>
+        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></` + `script>
         <script>
           QRCode.toCanvas(document.createElement('canvas'), '${qrUrl}', { width: 300 }, function(err, canvas) {
             if (!err) document.getElementById('qr').appendChild(canvas);
             setTimeout(function() { window.print(); }, 500);
           });
-        <\/script>
+        </` + `script>
       </body>
       </html>
     `)
         win.document.close()
+    }
+
+    const deleteTable = async (tableId) => {
+        setDeleting(true)
+        setDeleteError('')
+        try {
+            await api.delete(`/api/tables/${tableId}`)
+            toast.success('Table deleted')
+            setDeleteConfirmId(null)
+            fetchTables()
+        } catch (err) {
+            setDeleteError(err.response?.data?.detail || 'Failed to delete table')
+        } finally {
+            setDeleting(false)
+        }
     }
 
     const addTable = async () => {
@@ -173,12 +191,32 @@ export default function AdminTables() {
                                 <div style={{ display: 'flex', gap: 8 }}>
                                     <button onClick={() => downloadPng(table)} className="btn btn-secondary" style={{ flex: 1 }}>Download</button>
                                     <button onClick={() => printQr(table)} className="btn btn-secondary" style={{ flex: 1 }}>Print</button>
+                                    <button onClick={() => { setDeleteConfirmId(table.id); setDeleteError('') }} className="btn btn-ghost btn-sm" style={{ color: '#DC2626', padding: '0 10px' }} title="Delete table">🗑</button>
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
+
+            {deleteConfirmId && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => { setDeleteConfirmId(null); setDeleteError('') }} />
+                    <div className="card" style={{ position: 'relative', width: '100%', maxWidth: 380, padding: 24, borderRadius: 14, boxShadow: 'var(--shadow-xl)' }}>
+                        <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Delete Table?</h2>
+                        <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>
+                            This will permanently delete the table and its QR code. Tables with active orders cannot be deleted.
+                        </p>
+                        {deleteError && <p style={{ fontSize: 13, color: '#DC2626', marginBottom: 12 }}>{deleteError}</p>}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => { setDeleteConfirmId(null); setDeleteError('') }} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
+                            <button onClick={() => deleteTable(deleteConfirmId)} disabled={deleting} className="btn btn-primary" style={{ flex: 1, background: '#DC2626', borderColor: '#DC2626' }}>
+                                {deleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {modalOpen && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>

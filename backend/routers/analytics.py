@@ -13,10 +13,14 @@ from sqlalchemy import select, func, cast, Date, extract, case, Integer
 from sqlalchemy.orm import selectinload
 
 from core.database import get_db
-from core.dependencies import get_restaurant_id
-from models import Order, OrderItem, OrderStatus, MenuItem, MenuCategory, Table
+from core.dependencies import get_restaurant_id, require_role
+from models import Order, OrderItem, OrderStatus, MenuItem, MenuCategory, Table, Customer, User, UserRole
 
-router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
+router = APIRouter(
+    prefix="/api/analytics",
+    tags=["Analytics"],
+    dependencies=[Depends(require_role(UserRole.OWNER, UserRole.SUPER_ADMIN))],
+)
 
 
 def _parse_date(val: Optional[str], default: date) -> date:
@@ -59,12 +63,9 @@ async def analytics_summary(
     )
     completed_orders = (await db.execute(completed_q)).scalar() or 0
 
-    # Cancelled: PLACED and older than 30 minutes
-    threshold = datetime.now(timezone.utc) - timedelta(minutes=30)
+    # Cancelled: explicit CANCELLED status
     cancelled_q = select(func.count()).select_from(
-        base.where(Order.status == OrderStatus.PLACED)
-        .where(Order.created_at < threshold)
-        .subquery()
+        base.where(Order.status == OrderStatus.CANCELLED).subquery()
     )
     cancelled_orders = (await db.execute(cancelled_q)).scalar() or 0
 
@@ -125,6 +126,49 @@ async def analytics_summary(
     )
     total_items_sold = int((await db.execute(items_q)).scalar() or 0)
 
+    # Orders by status breakdown (exclude REMOVED)
+    status_q = (
+        select(Order.status, func.count(Order.id).label("cnt"))
+        .where(
+            Order.restaurant_id == restaurant_id,
+            cast(Order.created_at, Date) >= d_from,
+            cast(Order.created_at, Date) <= d_to,
+            Order.status != OrderStatus.REMOVED,
+        )
+        .group_by(Order.status)
+    )
+    status_rows = (await db.execute(status_q)).all()
+    orders_by_status = {r.status.value: int(r.cnt) for r in status_rows}
+
+    # Previous period comparison
+    period_days = max((d_to - d_from).days, 0)
+    prev_d_to = d_from - timedelta(days=1)
+    prev_d_from = prev_d_to - timedelta(days=period_days)
+
+    prev_rev_q = select(func.coalesce(func.sum(Order.total_amount), 0)).where(
+        Order.restaurant_id == restaurant_id,
+        cast(Order.created_at, Date) >= prev_d_from,
+        cast(Order.created_at, Date) <= prev_d_to,
+        Order.status == OrderStatus.DELIVERED,
+    )
+    prev_total_revenue = float((await db.execute(prev_rev_q)).scalar() or 0)
+
+    prev_orders_q = select(func.count()).where(
+        Order.restaurant_id == restaurant_id,
+        cast(Order.created_at, Date) >= prev_d_from,
+        cast(Order.created_at, Date) <= prev_d_to,
+    )
+    prev_total_orders = int((await db.execute(prev_orders_q)).scalar() or 0)
+
+    prev_completed_q = select(func.count()).where(
+        Order.restaurant_id == restaurant_id,
+        cast(Order.created_at, Date) >= prev_d_from,
+        cast(Order.created_at, Date) <= prev_d_to,
+        Order.status == OrderStatus.DELIVERED,
+    )
+    prev_completed = int((await db.execute(prev_completed_q)).scalar() or 0)
+    prev_avg_order_value = prev_total_revenue / prev_completed if prev_completed > 0 else 0
+
     return {
         "total_orders": total_orders,
         "completed_orders": completed_orders,
@@ -134,6 +178,10 @@ async def analytics_summary(
         "average_prep_time_minutes": avg_prep_time_minutes,
         "busiest_hour": busiest_hour,
         "total_items_sold": total_items_sold,
+        "orders_by_status": orders_by_status,
+        "prev_total_revenue": prev_total_revenue,
+        "prev_total_orders": prev_total_orders,
+        "prev_average_order_value": round(prev_avg_order_value, 2),
     }
 
 
@@ -367,4 +415,154 @@ async def orders_by_hour(
             {"hour": h, "order_count": hour_map.get(h, 0)}
             for h in range(24)
         ]
+    }
+
+
+# ─── GET /api/analytics/table-performance ────────────────
+
+@router.get("/table-performance")
+async def table_performance(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    restaurant_id: UUID = Depends(get_restaurant_id),
+    db: AsyncSession = Depends(get_db),
+):
+    today = date.today()
+    d_from = _parse_date(date_from, today - timedelta(days=29))
+    d_to = _parse_date(date_to, today)
+
+    q = (
+        select(
+            Table.id,
+            Table.table_number,
+            func.count(Order.id).label("total_orders"),
+            func.coalesce(
+                func.sum(
+                    case((Order.status == OrderStatus.DELIVERED, Order.total_amount), else_=0)
+                ),
+                0,
+            ).label("total_revenue"),
+        )
+        .join(Order, Order.table_id == Table.id, isouter=True)
+        .where(
+            Table.restaurant_id == restaurant_id,
+        )
+        .where(
+            (cast(Order.created_at, Date) >= d_from) | (Order.id.is_(None))
+        )
+        .where(
+            (cast(Order.created_at, Date) <= d_to) | (Order.id.is_(None))
+        )
+        .group_by(Table.id, Table.table_number)
+        .order_by(func.count(Order.id).desc())
+    )
+
+    rows = (await db.execute(q)).all()
+    return {
+        "tables": [
+            {
+                "table_id": str(r.id),
+                "table_number": r.table_number,
+                "total_orders": int(r.total_orders or 0),
+                "total_revenue": float(r.total_revenue or 0),
+                "avg_order_value": round(float(r.total_revenue or 0) / int(r.total_orders) if r.total_orders else 0, 2),
+            }
+            for r in rows
+        ]
+    }
+
+
+# ─── GET /api/analytics/customer-insights ────────────────
+
+@router.get("/customer-insights")
+async def customer_insights(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    restaurant_id: UUID = Depends(get_restaurant_id),
+    db: AsyncSession = Depends(get_db),
+):
+    today = date.today()
+    d_from = _parse_date(date_from, today - timedelta(days=29))
+    d_to = _parse_date(date_to, today)
+
+    # Total unique customers with orders in period
+    unique_q = (
+        select(func.count(func.distinct(Order.customer_id)))
+        .where(
+            Order.restaurant_id == restaurant_id,
+            Order.customer_id.isnot(None),
+            cast(Order.created_at, Date) >= d_from,
+            cast(Order.created_at, Date) <= d_to,
+        )
+    )
+    unique_customers = int((await db.execute(unique_q)).scalar() or 0)
+
+    # New vs returning: new = first order in period, returning = had order before period
+    new_q = (
+        select(func.count(func.distinct(Order.customer_id)))
+        .where(
+            Order.restaurant_id == restaurant_id,
+            Order.customer_id.isnot(None),
+            cast(Order.created_at, Date) >= d_from,
+            cast(Order.created_at, Date) <= d_to,
+        )
+        .where(
+            ~Order.customer_id.in_(
+                select(Order.customer_id).where(
+                    Order.restaurant_id == restaurant_id,
+                    Order.customer_id.isnot(None),
+                    cast(Order.created_at, Date) < d_from,
+                )
+            )
+        )
+    )
+    new_customers = int((await db.execute(new_q)).scalar() or 0)
+    returning_customers = unique_customers - new_customers
+
+    # Top 5 customers by order count
+    top_q = (
+        select(
+            Order.customer_id,
+            func.count(Order.id).label("order_count"),
+            func.coalesce(
+                func.sum(case((Order.status == OrderStatus.DELIVERED, Order.total_amount), else_=0)), 0
+            ).label("total_spent"),
+        )
+        .where(
+            Order.restaurant_id == restaurant_id,
+            Order.customer_id.isnot(None),
+            cast(Order.created_at, Date) >= d_from,
+            cast(Order.created_at, Date) <= d_to,
+        )
+        .group_by(Order.customer_id)
+        .order_by(func.count(Order.id).desc())
+        .limit(5)
+    )
+    top_rows = (await db.execute(top_q)).all()
+
+    # Get customer names/phones
+    cust_ids = [r.customer_id for r in top_rows]
+    cust_q = select(Customer.id, Customer.name, Customer.phone).where(Customer.id.in_(cust_ids))
+    cust_rows = (await db.execute(cust_q)).all()
+    cust_map = {str(r.id): {"name": r.name, "phone": r.phone} for r in cust_rows}
+
+    top_customers = []
+    for r in top_rows:
+        cid = str(r.customer_id)
+        cinfo = cust_map.get(cid, {})
+        phone = cinfo.get("phone", "")
+        masked = phone[:3] + "****" + phone[-3:] if len(phone) >= 7 else phone
+        top_customers.append({
+            "customer_id": cid,
+            "name": cinfo.get("name") or "Guest",
+            "phone_masked": masked,
+            "order_count": int(r.order_count),
+            "total_spent": float(r.total_spent or 0),
+        })
+
+    return {
+        "unique_customers": unique_customers,
+        "new_customers": new_customers,
+        "returning_customers": returning_customers,
+        "top_customers": top_customers,
     }

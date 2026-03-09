@@ -1,37 +1,37 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import { useAuth } from '../context/AuthContext'
 
 export default function useSocket() {
     const [isConnected, setIsConnected] = useState(false)
-    const socketRef = useRef(null)
-    const { token, effectiveRestaurantId } = useAuth()
+    const [socket, setSocket] = useState(null)
+    const { effectiveRestaurantId } = useAuth()
 
     useEffect(() => {
-        const socket = io(import.meta.env.VITE_API_URL, {
+        const s = io(import.meta.env.VITE_API_URL, {
             auth: {
-                token,
                 restaurant_id: effectiveRestaurantId,
             },
             transports: ['websocket', 'polling'],
         })
 
-        socket.on('connect', () => {
-            console.log('Socket connected:', socket.id)
+        s.on('connect', () => {
+            console.log('Socket connected:', s.id)
             setIsConnected(true)
         })
 
-        socket.on('disconnect', () => {
+        s.on('disconnect', () => {
             console.log('Socket disconnected')
             setIsConnected(false)
         })
 
-        socketRef.current = socket
+        setSocket(s)
 
         return () => {
-            socket.disconnect()
+            s.disconnect()
+            setSocket(null)
         }
-    }, [token, effectiveRestaurantId])
+    }, [effectiveRestaurantId])
 
-    return { socket: socketRef.current, isConnected }
+    return { socket, isConnected }
 }

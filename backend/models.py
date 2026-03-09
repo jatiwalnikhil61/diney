@@ -29,6 +29,8 @@ class OrderStatus(str, enum.Enum):
     READY = "READY"
     PICKED_UP = "PICKED_UP"
     DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
+    REMOVED = "REMOVED"
 
 
 
@@ -131,6 +133,8 @@ class Table(Base):
 
     restaurant = relationship("Restaurant", back_populates="tables")
     orders = relationship("Order", back_populates="table", cascade="all, delete-orphan")
+
+    __table_args__ = (UniqueConstraint("restaurant_id", "table_number", name="uq_table_restaurant_number"),)
 
 
 class Order(Base):

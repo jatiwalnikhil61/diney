@@ -22,6 +22,7 @@ api.interceptors.response.use(
             const url = err.config?.url || ''
             if (!url.includes('/api/auth/') && !url.includes('/api/customer/')) {
                 _logoutFn()
+                sessionStorage.setItem('session_expired', '1')
                 window.location.href = '/login'
             }
         }

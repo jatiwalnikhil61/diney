@@ -31,6 +31,7 @@ function ShellLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(() =>
     sessionStorage.getItem('sidebarOpen') !== 'false'
   )
+  const isMobile = window.innerWidth <= 768
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => {
@@ -40,13 +41,19 @@ function ShellLayout({ children }) {
     })
   }
 
+  // On mobile the sidebar overlays the content; on desktop it pushes it
+  const mainStyle = isMobile
+    ? {}
+    : { marginLeft: sidebarOpen ? 'var(--sidebar-width)' : 0, paddingLeft: sidebarOpen ? 0 : 48 }
+
   return (
     <div className="app-shell">
       <Sidebar sidebarOpen={sidebarOpen} onToggle={toggleSidebar} />
-      <main className="main-content" style={{
-        marginLeft: sidebarOpen ? 'var(--sidebar-width)' : 0,
-        paddingLeft: sidebarOpen ? 0 : 48,
-      }}>
+      {/* Backdrop: closes sidebar on mobile when tapping outside */}
+      {isMobile && sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={toggleSidebar} />
+      )}
+      <main className="main-content" style={mainStyle}>
         {children}
       </main>
     </div>

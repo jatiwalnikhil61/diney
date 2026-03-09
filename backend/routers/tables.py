@@ -3,11 +3,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from core.database import get_db
 from core.dependencies import get_current_user, get_restaurant_id
-from models import Table, User
+from models import Table, Order, OrderStatus, User
 from schemas import TableCreate, TableResponse
+
+ACTIVE_STATUSES = {
+    OrderStatus.PLACED, OrderStatus.CONFIRMED,
+    OrderStatus.PREPARING, OrderStatus.READY,
+}
 
 router = APIRouter(prefix="/api/tables", tags=["Tables"])
 
@@ -35,7 +41,11 @@ async def create_table(
         qr_token=secrets.token_urlsafe(32),
     )
     db.add(table)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "A table with this name already exists.")
     await db.refresh(table)
     return table
 
@@ -50,6 +60,17 @@ async def delete_table(
     table = result.scalar_one_or_none()
     if not table:
         raise HTTPException(404, "Table not found")
+
+    # Check for active orders on this table
+    active_result = await db.execute(
+        select(Order.id).where(
+            Order.table_id == table_id,
+            Order.status.in_(ACTIVE_STATUSES),
+        ).limit(1)
+    )
+    if active_result.scalar_one_or_none():
+        raise HTTPException(409, "This table has active orders and cannot be deleted.")
+
     await db.delete(table)
     await db.commit()
 

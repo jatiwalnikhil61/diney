@@ -10,7 +10,10 @@ const STATUS_CONFIG = {
     READY:      { label: "Ready — on its way!",   color: '#10B981', pulse: true },
     PICKED_UP:  { label: 'Picked up',             color: '#10B981', pulse: false },
     DELIVERED:  { label: 'Delivered',             color: '#059669', pulse: false },
+    CANCELLED:  { label: 'Order cancelled',       color: '#EF4444', pulse: false },
 }
+
+const TERMINAL_STATUSES = ['DELIVERED', 'PICKED_UP', 'CANCELLED']
 
 function StatusDot({ status }) {
     const cfg = STATUS_CONFIG[status] || { color: '#9CA3AF', pulse: false }
@@ -35,7 +38,7 @@ function formatDateTime(iso) {
         ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function CustomerOrderTracker({ restaurantId }) {
+export default function CustomerOrderTracker({ restaurantId, onOrdersLoaded }) {
     const { customer, logout } = useCustomerAuth()
     const [currentOrder, setCurrentOrder] = useState(null)
     const [pastOrders, setPastOrders] = useState([])
@@ -47,8 +50,9 @@ export default function CustomerOrderTracker({ restaurantId }) {
             const res = await api.get('/api/customer/orders', { params: { restaurant_id: restaurantId } })
             setCurrentOrder(res.data.current_order)
             setPastOrders(res.data.past_orders)
+            onOrdersLoaded?.(res.data.current_order)
         } catch {
-            // silent — customer might have no orders yet
+            onOrdersLoaded?.(null)
         } finally {
             setLoading(false)
         }
@@ -70,11 +74,10 @@ export default function CustomerOrderTracker({ restaurantId }) {
         socket.on('order:updated', (data) => {
             setCurrentOrder(prev => {
                 if (!prev || prev.id !== data.order_id) return prev
-                const terminal = ['DELIVERED', 'PICKED_UP']
-                if (terminal.includes(data.status)) {
-                    // Move to past orders
+                if (TERMINAL_STATUSES.includes(data.status)) {
                     const done = { ...prev, status: data.status }
                     setPastOrders(old => [done, ...old].slice(0, 3))
+                    onOrdersLoaded?.(null)
                     return null
                 }
                 return { ...prev, status: data.status }
@@ -82,7 +85,10 @@ export default function CustomerOrderTracker({ restaurantId }) {
         })
 
         socketRef.current = socket
-        return () => socket.disconnect()
+        return () => {
+            socket.off('order:updated')
+            socket.disconnect()
+        }
     }, [restaurantId])
 
     const card = {
@@ -94,6 +100,8 @@ export default function CustomerOrderTracker({ restaurantId }) {
     }
 
     if (loading) return null
+
+    const isCancelled = currentOrder?.status === 'CANCELLED'
 
     return (
         <>
@@ -119,9 +127,15 @@ export default function CustomerOrderTracker({ restaurantId }) {
 
                 {/* Current order */}
                 {currentOrder && (
-                    <div style={{ ...card, border: '1.5px solid #F59E0B20', background: '#FFFBF0' }}>
+                    <div style={{
+                        ...card,
+                        border: isCancelled ? '1.5px solid #FCA5A520' : '1.5px solid #F59E0B20',
+                        background: isCancelled ? '#FFF5F5' : '#FFFBF0',
+                    }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>Order in progress</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
+                                {isCancelled ? 'Order cancelled' : 'Order in progress'}
+                            </span>
                             {currentOrder.table_number && (
                                 <span style={{ fontSize: 12, color: '#6B7280', background: '#F3F4F6', padding: '2px 8px', borderRadius: 20 }}>
                                     Table {currentOrder.table_number}
@@ -152,22 +166,33 @@ export default function CustomerOrderTracker({ restaurantId }) {
                 )}
 
                 {/* Past orders */}
-                {pastOrders.map(order => (
-                    <div key={order.id} style={card}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                            <span style={{ fontSize: 12, color: '#9CA3AF' }}>{formatDateTime(order.created_at)}</span>
-                            <span style={{ fontSize: 12, color: '#059669', fontWeight: 600, background: '#D1FAE5', padding: '2px 8px', borderRadius: 20 }}>
-                                {STATUS_CONFIG[order.status]?.label || order.status}
-                            </span>
+                {pastOrders.map(order => {
+                    const cfg = STATUS_CONFIG[order.status]
+                    const cancelled = order.status === 'CANCELLED'
+                    return (
+                        <div key={order.id} style={card}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                                <span style={{ fontSize: 12, color: '#9CA3AF' }}>{formatDateTime(order.created_at)}</span>
+                                <span style={{
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    color: cancelled ? '#DC2626' : '#059669',
+                                    background: cancelled ? '#FEE2E2' : '#D1FAE5',
+                                    padding: '2px 8px',
+                                    borderRadius: 20,
+                                }}>
+                                    {cfg?.label || order.status}
+                                </span>
+                            </div>
+                            <p style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>
+                                {order.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}
+                            </p>
+                            <p style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: 0 }}>
+                                ₹{Number(order.total_amount).toFixed(0)}
+                            </p>
                         </div>
-                        <p style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>
-                            {order.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}
-                        </p>
-                        <p style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: 0 }}>
-                            ₹{Number(order.total_amount).toFixed(0)}
-                        </p>
-                    </div>
-                ))}
+                    )
+                })}
 
                 {/* Empty state */}
                 {!currentOrder && pastOrders.length === 0 && (

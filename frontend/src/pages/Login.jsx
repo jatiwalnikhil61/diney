@@ -37,12 +37,21 @@ export default function Login() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [resendCountdown, setResendCountdown] = useState(0)
+    const [sessionExpired, setSessionExpired] = useState(false)
     const otpRefs = useRef([])
 
     // Redirect if already logged in (wait for session restore first)
     useEffect(() => {
         if (!authLoading && isAuthenticated) navigate(getHomePath(role, modules), { replace: true })
     }, [authLoading, isAuthenticated])
+
+    // Show session expired banner if redirected from 401
+    useEffect(() => {
+        if (sessionStorage.getItem('session_expired')) {
+            setSessionExpired(true)
+            sessionStorage.removeItem('session_expired')
+        }
+    }, [])
 
     // Resend countdown timer
     useEffect(() => {
@@ -141,6 +150,11 @@ export default function Login() {
     return (
         <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div className="card" style={{ width: '100%', maxWidth: 380, padding: 32, borderRadius: 16, boxShadow: 'var(--shadow-lg)' }}>
+                {sessionExpired && (
+                    <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#92400E', textAlign: 'center' }}>
+                        Your session has expired. Please log in again.
+                    </div>
+                )}
                 <div style={{ textAlign: 'center', marginBottom: 28 }}>
                     <h1 style={{ fontFamily: 'Playfair Display, serif', fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>
                         Diney

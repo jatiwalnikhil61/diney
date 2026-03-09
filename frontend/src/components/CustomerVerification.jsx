@@ -4,7 +4,7 @@ import { useCustomerAuth } from '../context/CustomerAuthContext'
 
 export default function CustomerVerification({ restaurantId, restaurantName }) {
     const { setCustomer } = useCustomerAuth()
-    const [step, setStep] = useState(1) // 1=phone, 2=otp, 3=name
+    const [step, setStep] = useState(1) // 1=phone, 2=otp, 3=name (new customers only, AFTER OTP verified)
     const [phone, setPhone] = useState('')
     const [otp, setOtp] = useState(['', '', '', '', '', ''])
     const [name, setName] = useState('')
@@ -14,9 +14,6 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
     const [resendCountdown, setResendCountdown] = useState(0)
     const otpRefs = useRef([])
     const timerRef = useRef(null)
-
-    // Verified OTP token kept so we can re-submit with name in step 3
-    const verifiedOtpRef = useRef('')
 
     useEffect(() => {
         return () => clearInterval(timerRef.current)
@@ -53,7 +50,7 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
         }
     }
 
-    // ── Step 2: verify OTP ───────────────────────────────
+    // ── Step 2: verify OTP — always calls API first ──────
     const handleVerifyOtp = async (e) => {
         e.preventDefault()
         setError('')
@@ -61,19 +58,20 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
         if (otpStr.length < 6) { setError('Enter the 6-digit code'); return }
         setLoading(true)
         try {
-            verifiedOtpRef.current = otpStr
-            if (isNewCustomer) {
-                // Don't set cookie yet — go to name step first
-                setStep(3)
-                setLoading(false)
-                return
-            }
             const res = await api.post('/api/customer/verify-otp', {
                 phone: phone.trim(),
                 restaurant_id: restaurantId,
                 otp: otpStr,
             })
+            // OTP verified and cookie set for all customers
             setCustomer(res.data.customer)
+            if (isNewCustomer) {
+                // Go to name step (customer already authenticated, just need the name)
+                setStep(3)
+                setLoading(false)
+                return
+            }
+            // Returning customers: done
         } catch (err) {
             const msg = err.response?.data?.detail || ''
             if (msg.toLowerCase().includes('expired')) {
@@ -86,19 +84,14 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
         }
     }
 
-    // ── Step 3: submit name ──────────────────────────────
+    // ── Step 3: save name via update-name endpoint ───────
     const handleSubmitName = async (e) => {
         e.preventDefault()
         setError('')
         if (!name.trim()) { setError('Please enter your name'); return }
         setLoading(true)
         try {
-            const res = await api.post('/api/customer/verify-otp', {
-                phone: phone.trim(),
-                restaurant_id: restaurantId,
-                otp: verifiedOtpRef.current,
-                name: name.trim(),
-            })
+            const res = await api.post('/api/customer/update-name', { name: name.trim() })
             setCustomer(res.data.customer)
         } catch (err) {
             setError(err.response?.data?.detail || 'Something went wrong. Please try again.')
@@ -198,6 +191,7 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
         boxSizing: 'border-box',
         marginBottom: 12,
         fontFamily: 'DM Sans, sans-serif',
+        minHeight: 44,
     }
     const btnStyle = {
         width: '100%',
@@ -211,6 +205,15 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
         cursor: 'pointer',
         fontFamily: 'DM Sans, sans-serif',
         opacity: loading ? 0.7 : 1,
+        minHeight: 44,
+    }
+    const backBtnStyle = {
+        background: 'none',
+        border: 'none',
+        color: '#6B7280',
+        cursor: 'pointer',
+        padding: 0,
+        fontSize: 13,
     }
     const errorStyle = {
         fontSize: 13,
@@ -294,7 +297,7 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
                             <button
                                 type="button"
                                 onClick={() => { setStep(1); setError(''); setOtp(['', '', '', '', '', '']) }}
-                                style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer', padding: 0 }}
+                                style={backBtnStyle}
                             >
                                 ← Change number
                             </button>
@@ -314,7 +317,7 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
                     </form>
                 )}
 
-                {/* ── Step 3: Name ── */}
+                {/* ── Step 3: Name (new customers only, OTP already verified) ── */}
                 {step === 3 && (
                     <form onSubmit={handleSubmitName}>
                         <h1 style={titleStyle}>What's your name?</h1>
@@ -331,6 +334,15 @@ export default function CustomerVerification({ restaurantId, restaurantName }) {
                         <button style={btnStyle} type="submit" disabled={loading}>
                             {loading ? 'Just a moment…' : "Let's go →"}
                         </button>
+                        <div style={{ textAlign: 'center', marginTop: 12 }}>
+                            <button
+                                type="button"
+                                onClick={() => { setStep(2); setError('') }}
+                                style={backBtnStyle}
+                            >
+                                ← Back
+                            </button>
+                        </div>
                     </form>
                 )}
             </div>

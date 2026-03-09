@@ -50,7 +50,7 @@ def _set_auth_cookie(response: Response, token: str) -> None:
         httponly=True,
         secure=not settings.DEV_MODE,
         samesite="lax" if settings.DEV_MODE else "none",
-        max_age=86400,
+        max_age=43200,
         path="/",
     )
 
@@ -116,7 +116,7 @@ async def _generate_and_deliver_otp(user: User, db: AsyncSession) -> None:
 
     otp_message = (
         f"Your Diney OTP is {otp}. "
-        f"Valid for 10 minutes. Do not share this code."
+        f"Valid for {otp_expiry} minutes. Do not share this code."
     )
     await send_sms(user.phone, otp_message)
 
@@ -198,10 +198,10 @@ async def verify_otp(
 
     await db.commit()
 
-    # Issue access token (24h) and set as httpOnly cookie
+    # Issue access token (12h) and set as httpOnly cookie
     access_token = _create_token(
         {"sub": str(user.id), "type": "access_token"},
-        expires_minutes=1440,
+        expires_minutes=720,
     )
     _set_auth_cookie(response, access_token)
 

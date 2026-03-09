@@ -698,3 +698,82 @@ button, a, input, select, textarea {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* ─── RESPONSIVE ─────────────────────────────────────────── */
+
+/* Sidebar backdrop overlay (mobile only, toggled via JS class) */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 99;
+}
+
+@media (max-width: 768px) {
+  /* Sidebar: full overlay on mobile, no left margin on content */
+  .main-content {
+    margin-left: 0 !important;
+  }
+
+  .sidebar {
+    z-index: 200;
+    box-shadow: var(--shadow-xl);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+  }
+
+  /* Page spacing tightened on mobile */
+  .page-header-bar {
+    padding: 12px 16px;
+  }
+
+  .page-content {
+    padding: 16px 16px 40px;
+  }
+
+  /* Min 44px touch targets */
+  .btn {
+    min-height: 44px;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+  }
+
+  .form-input {
+    min-height: 44px;
+  }
+
+  /* Tables: force horizontal scroll */
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  /* Page title smaller on mobile */
+  .page-title {
+    font-size: 20px;
+  }
+
+  /* Stat cards: 2 cols on mobile */
+  .stat-card .stat-value {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Tighter on very small screens */
+  .page-header-bar {
+    padding: 10px 12px;
+  }
+
+  .page-content {
+    padding: 12px 12px 32px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+}

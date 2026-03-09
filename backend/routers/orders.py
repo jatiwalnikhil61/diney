@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from core.database import get_db
 from core.dependencies import get_current_user, get_restaurant_id
-from models import Order, OrderItem, OrderStatus, ProcessConfig, Table, User
+from models import Order, OrderItem, OrderStatus, ProcessConfig, Table, User, UserRole
 from schemas import OrderResponse, OrderStatusUpdate
 from services.order_flow import get_valid_transitions
 
@@ -136,6 +136,78 @@ async def update_order_status(
             payload,
             room=f"restaurant_{order.restaurant_id}",
         )
+    except Exception as e:
+        print(f"Socket.IO emit error: {e}")
+
+    return _order_with_table(order)
+
+
+@router.post("/{order_id}/cancel", response_model=OrderResponse)
+async def cancel_order(
+    order_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if user.role != UserRole.OWNER:
+        raise HTTPException(403, "Only owners can cancel orders")
+
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.table))
+        .where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+
+    terminal = {OrderStatus.DELIVERED, OrderStatus.PICKED_UP, OrderStatus.CANCELLED, OrderStatus.REMOVED}
+    if order.status in terminal:
+        raise HTTPException(400, f"Order is already {order.status.value.lower()} and cannot be cancelled")
+
+    order.status = OrderStatus.CANCELLED
+    order.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(order, ["items", "table"])
+
+    try:
+        from main import sio
+        table_number = order.table.table_number if order.table else "Unknown"
+        await sio.emit("order:updated", _order_to_emit_payload(order, table_number),
+                       room=f"restaurant_{order.restaurant_id}")
+    except Exception as e:
+        print(f"Socket.IO emit error: {e}")
+
+    return _order_with_table(order)
+
+
+@router.post("/{order_id}/remove", response_model=OrderResponse)
+async def remove_order(
+    order_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if user.role != UserRole.OWNER:
+        raise HTTPException(403, "Only owners can remove orders")
+
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.table))
+        .where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+
+    order.status = OrderStatus.REMOVED
+    order.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(order, ["items", "table"])
+
+    try:
+        from main import sio
+        table_number = order.table.table_number if order.table else "Unknown"
+        await sio.emit("order:updated", _order_to_emit_payload(order, table_number),
+                       room=f"restaurant_{order.restaurant_id}")
     except Exception as e:
         print(f"Socket.IO emit error: {e}")
 

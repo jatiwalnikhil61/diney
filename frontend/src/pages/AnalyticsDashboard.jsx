@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -41,9 +41,46 @@ function formatDate(str) {
     return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
 }
 
-const Skeleton = ({ className = '' }) => (
-    <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
-)
+function pctChange(current, prev) {
+    if (!prev || prev === 0) return null
+    return ((current - prev) / prev * 100).toFixed(1)
+}
+
+function PctBadge({ current, prev }) {
+    const pct = pctChange(current, prev)
+    if (pct === null) return null
+    const up = parseFloat(pct) >= 0
+    return (
+        <span style={{
+            fontSize: 12, fontWeight: 600,
+            color: up ? '#059669' : '#DC2626',
+            marginLeft: 6,
+        }}>
+            {up ? '↑' : '↓'} {Math.abs(pct)}%
+        </span>
+    )
+}
+
+const STATUS_COLORS = {
+    PLACED: '#3B82F6',
+    CONFIRMED: '#F59E0B',
+    PREPARING: '#D97706',
+    READY: '#10B981',
+    DELIVERED: '#059669',
+    CANCELLED: '#EF4444',
+    PICKED_UP: '#6B7280',
+}
+
+const STATUS_LABELS = {
+    PLACED: 'New',
+    CONFIRMED: 'Confirmed',
+    PREPARING: 'Preparing',
+    READY: 'Ready',
+    DELIVERED: 'Delivered',
+    CANCELLED: 'Cancelled',
+    PICKED_UP: 'Picked Up',
+    REMOVED: 'Removed',
+}
 
 export default function AnalyticsDashboard() {
     const [rangeKey, setRangeKey] = useState('today')
@@ -53,18 +90,21 @@ export default function AnalyticsDashboard() {
     const [revenueData, setRevenueData] = useState([])
     const [hourData, setHourData] = useState([])
     const [topItems, setTopItems] = useState([])
+    const [tablePerf, setTablePerf] = useState([])
+    const [customerInsights, setCustomerInsights] = useState(null)
     const [liveOrders, setLiveOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [showAllItems, setShowAllItems] = useState(false)
     const { socket, isConnected } = useSocket()
-    const { effectiveRestaurantId } = useAuth()
+    const { effectiveRestaurantId, role } = useAuth()
     const { isDark } = useTheme()
+    const isOwner = role === 'OWNER'
 
-    // Theme-aware chart colors (light mode = dark card bg, dark mode = light card bg)
     const chartGrid = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'
     const chartAxis = isDark ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.40)'
     const tooltipBorder = isDark ? '#333333' : '#E0E0E0'
     const tooltipBg = isDark ? '#1A1A1A' : '#FFFFFF'
+    const tooltipColor = isDark ? '#F5F5F5' : '#111111'
     const barDefault = isDark ? 'rgba(245,158,11,0.30)' : 'rgba(245,158,11,0.25)'
     const barBusiest = isDark ? '#F59E0B' : '#D97706'
 
@@ -77,22 +117,28 @@ export default function AnalyticsDashboard() {
         setLoading(true)
         try {
             const params = { ...dateRange, restaurant_id: effectiveRestaurantId }
-            const [sumRes, revRes, hourRes, itemRes] = await Promise.all([
+            const calls = [
                 api.get('/api/analytics/summary', { params }),
                 api.get('/api/analytics/revenue-by-day', { params }),
                 api.get('/api/analytics/orders-by-hour', { params }),
                 api.get('/api/analytics/popular-items', { params: { ...params, limit: 10 } }),
-            ])
-            setSummary(sumRes.data)
-            setRevenueData(revRes.data.data || [])
-            setHourData(hourRes.data.data || [])
-            setTopItems(itemRes.data.items || [])
+                api.get('/api/analytics/table-performance', { params }),
+            ]
+            if (isOwner) calls.push(api.get('/api/analytics/customer-insights', { params }))
+
+            const results = await Promise.all(calls)
+            setSummary(results[0].data)
+            setRevenueData(results[1].data.data || [])
+            setHourData(results[2].data.data || [])
+            setTopItems(results[3].data.items || [])
+            setTablePerf(results[4].data.tables || [])
+            if (isOwner && results[5]) setCustomerInsights(results[5].data)
         } catch (err) {
             console.error('Failed to fetch analytics:', err)
         } finally {
             setLoading(false)
         }
-    }, [dateRange.date_from, dateRange.date_to, effectiveRestaurantId])
+    }, [dateRange.date_from, dateRange.date_to, effectiveRestaurantId, isOwner])
 
     useEffect(() => { fetchAnalytics() }, [fetchAnalytics])
 
@@ -102,7 +148,7 @@ export default function AnalyticsDashboard() {
             const res = await api.get('/api/orders', {
                 params: { restaurant_id: effectiveRestaurantId, date: today },
             })
-            setLiveOrders(res.data.filter(o => o.status !== 'DELIVERED'))
+            setLiveOrders(res.data.filter(o => o.status !== 'DELIVERED' && o.status !== 'REMOVED'))
         } catch (err) { console.error(err) }
     }, [effectiveRestaurantId])
 
@@ -123,7 +169,7 @@ export default function AnalyticsDashboard() {
         }
         const handleUpdated = (data) => {
             setLiveOrders(prev => {
-                if (data.status === 'DELIVERED') return prev.filter(o => o.id !== data.order_id)
+                if (data.status === 'DELIVERED' || data.status === 'REMOVED' || data.status === 'CANCELLED') return prev.filter(o => o.id !== data.order_id)
                 return prev.map(o => o.id === data.order_id ? { ...o, status: data.status } : o)
             })
         }
@@ -133,6 +179,24 @@ export default function AnalyticsDashboard() {
     }, [socket])
 
     const maxHour = hourData.reduce((max, d) => d.order_count > max.order_count ? d : max, { order_count: 0 })
+
+    const donutData = summary?.orders_by_status
+        ? Object.entries(summary.orders_by_status)
+            .filter(([, v]) => v > 0)
+            .map(([status, count]) => ({ name: STATUS_LABELS[status] || status, value: count, status }))
+        : []
+
+    const sectionTitle = (text) => (
+        <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)' }}>
+            {text}
+        </h2>
+    )
+
+    const emptyState = (msg) => (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 14 }}>
+            {msg}
+        </div>
+    )
 
     return (
         <div>
@@ -159,31 +223,39 @@ export default function AnalyticsDashboard() {
             </div>
 
             <div className="page-content" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
                 {/* KPI Cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-                    {loading ? (
-                        [1, 2, 3, 4].map(i => (
-                            <div key={i} className="stat-card">
-                                <Skeleton className="h-3 w-20 mb-3" />
-                                <Skeleton className="h-8 w-28 mb-2" />
-                                <Skeleton className="h-3 w-32" />
-                            </div>
-                        ))
-                    ) : (
+                    {loading ? [1, 2, 3, 4].map(i => (
+                        <div key={i} className="stat-card animate-pulse">
+                            <div style={{ height: 12, width: 80, background: 'var(--stone-200)', borderRadius: 4, marginBottom: 12 }} />
+                            <div style={{ height: 32, width: 110, background: 'var(--stone-200)', borderRadius: 4, marginBottom: 8 }} />
+                            <div style={{ height: 12, width: 130, background: 'var(--stone-200)', borderRadius: 4 }} />
+                        </div>
+                    )) : (
                         <>
                             <div className="stat-card">
                                 <p className="stat-label">Total Revenue</p>
-                                <p className="stat-value">{summary ? `₹${summary.total_revenue.toLocaleString('en-IN')}` : '—'}</p>
+                                <p className="stat-value" style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 4 }}>
+                                    {summary ? `₹${summary.total_revenue.toLocaleString('en-IN')}` : '—'}
+                                    {summary && <PctBadge current={summary.total_revenue} prev={summary.prev_total_revenue} />}
+                                </p>
                                 <p className="stat-sub">{summary ? `from ${summary.completed_orders} completed orders` : '—'}</p>
                             </div>
                             <div className="stat-card">
                                 <p className="stat-label">Total Orders</p>
-                                <p className="stat-value">{summary ? summary.total_orders : '—'}</p>
-                                <p className="stat-sub">{summary ? `${summary.completed_orders} completed` : '—'}</p>
+                                <p className="stat-value" style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 4 }}>
+                                    {summary ? summary.total_orders : '—'}
+                                    {summary && <PctBadge current={summary.total_orders} prev={summary.prev_total_orders} />}
+                                </p>
+                                <p className="stat-sub">{summary ? `${summary.completed_orders} completed · ${summary.cancelled_orders || 0} cancelled` : '—'}</p>
                             </div>
                             <div className="stat-card">
                                 <p className="stat-label">Avg Order Value</p>
-                                <p className="stat-value">{summary ? `₹${summary.average_order_value.toLocaleString('en-IN')}` : '—'}</p>
+                                <p className="stat-value" style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 4 }}>
+                                    {summary ? `₹${summary.average_order_value.toLocaleString('en-IN')}` : '—'}
+                                    {summary && <PctBadge current={summary.average_order_value} prev={summary.prev_average_order_value} />}
+                                </p>
                                 <p className="stat-sub">per completed order</p>
                             </div>
                             <div className="stat-card">
@@ -197,14 +269,8 @@ export default function AnalyticsDashboard() {
 
                 {/* Revenue Chart */}
                 <div className="card" style={{ padding: 20 }}>
-                    <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)' }}>
-                        Revenue Over Time
-                    </h2>
-                    {revenueData.length === 0 || revenueData.every(d => d.revenue === 0) ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
-                            <p>No orders in this period yet</p>
-                        </div>
-                    ) : (
+                    {sectionTitle('Revenue Over Time')}
+                    {revenueData.length === 0 || revenueData.every(d => d.revenue === 0) ? emptyState('No revenue in this period yet') : (
                         <ResponsiveContainer width="100%" height={280}>
                             <AreaChart data={revenueData}>
                                 <defs>
@@ -216,70 +282,90 @@ export default function AnalyticsDashboard() {
                                 <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
                                 <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12, fontFamily: 'DM Sans', fill: chartAxis }} stroke={chartAxis} />
                                 <YAxis tick={{ fontSize: 12, fontFamily: 'DM Sans', fill: chartAxis }} stroke={chartAxis} tickFormatter={v => `₹${v}`} />
-                                <Tooltip formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']}
+                                <Tooltip formatter={v => [`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']}
                                     labelFormatter={formatDate}
-                                    contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: isDark ? '#F5F5F5' : '#111111' }} />
+                                    contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: tooltipColor }} />
                                 <Area type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2} fill="url(#revenueGrad)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     )}
                 </div>
 
-                {/* Peak Hours + Top Items */}
+                {/* Orders by Status + Busiest Hours */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
-                    {/* Peak Hours */}
+                    {/* Orders by Status donut */}
                     <div className="card" style={{ padding: 20 }}>
-                        <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)' }}>
-                            Busiest Hours
-                        </h2>
-                        {hourData.every(d => d.order_count === 0) ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
-                                <p style={{ fontSize: 14 }}>No data yet</p>
+                        {sectionTitle('Orders by Status')}
+                        {donutData.length === 0 ? emptyState('No orders yet') : (
+                            <ResponsiveContainer width="100%" height={240}>
+                                <PieChart>
+                                    <Pie data={donutData} cx="50%" cy="50%" innerRadius={60} outerRadius={95}
+                                        dataKey="value" paddingAngle={2}>
+                                        {donutData.map((entry, i) => (
+                                            <Cell key={i} fill={STATUS_COLORS[entry.status] || '#9CA3AF'} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        formatter={v => [v, 'orders']}
+                                        contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: tooltipColor }}
+                                        itemStyle={{ color: tooltipColor }}
+                                        labelStyle={{ color: tooltipColor }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        )}
+                        {donutData.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 4 }}>
+                                {donutData.map((d, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+                                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: STATUS_COLORS[d.status] || '#9CA3AF', flexShrink: 0 }} />
+                                        <span style={{ color: 'var(--text-secondary)' }}>{d.name}</span>
+                                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{d.value}</span>
+                                    </div>
+                                ))}
                             </div>
-                        ) : (
+                        )}
+                    </div>
+
+                    {/* Busiest Hours */}
+                    <div className="card" style={{ padding: 20 }}>
+                        {sectionTitle('Busiest Hours')}
+                        {hourData.every(d => d.order_count === 0) ? emptyState('No data yet') : (
                             <ResponsiveContainer width="100%" height={240}>
                                 <BarChart data={hourData.filter(d => d.order_count > 0 || (d.hour >= 8 && d.hour <= 23))}>
                                     <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
                                     <XAxis dataKey="hour" tickFormatter={formatHour} tick={{ fontSize: 11, fontFamily: 'DM Sans', fill: chartAxis }} stroke={chartAxis} />
                                     <YAxis tick={{ fontSize: 12, fontFamily: 'DM Sans', fill: chartAxis }} stroke={chartAxis} allowDecimals={false} />
-                                    <Tooltip labelFormatter={h => formatHour(h)}
-                                        formatter={(v) => [`${v} orders`]}
-                                        contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: isDark ? '#F5F5F5' : '#111111' }} />
+                                    <Tooltip labelFormatter={h => formatHour(h)} formatter={v => [`${v} orders`]}
+                                        contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, fontSize: 13, fontFamily: 'DM Sans', background: tooltipBg, color: tooltipColor }} />
                                     <Bar dataKey="order_count" radius={[4, 4, 0, 0]}
                                         shape={(props) => {
                                             const { x, y, width, height, payload } = props
                                             const isBusiest = payload.hour === maxHour.hour && maxHour.order_count > 0
-                                            return <rect x={x} y={y} width={width} height={height} rx={4} ry={4}
-                                                fill={isBusiest ? barBusiest : barDefault} />
+                                            return <rect x={x} y={y} width={width} height={height} rx={4} ry={4} fill={isBusiest ? barBusiest : barDefault} />
                                         }} />
                                 </BarChart>
                             </ResponsiveContainer>
                         )}
                     </div>
+                </div>
 
+                {/* Top Items + Table Performance */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
                     {/* Top Items */}
                     <div className="card" style={{ padding: 20 }}>
-                        <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)' }}>
-                            Most Popular Items
-                        </h2>
-                        {topItems.length === 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
-                                <p style={{ fontSize: 14 }}>No items sold yet</p>
-                            </div>
-                        ) : (
+                        {sectionTitle('Most Popular Items')}
+                        {topItems.length === 0 ? emptyState('No items sold yet') : (
                             <>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     {topItems.slice(0, showAllItems ? 10 : 5).map((item, i) => (
                                         <div key={item.menu_item_id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px', borderRadius: 6 }}>
                                             <span style={{
-                                                width: 24, height: 24, borderRadius: '50%',
+                                                width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 fontSize: 12, fontWeight: 700,
                                                 background: i < 3 ? 'var(--saffron-light)' : 'var(--stone-100)',
                                                 color: i < 3 ? 'var(--saffron-dark)' : 'var(--text-muted)',
-                                            }}>
-                                                {i + 1}
-                                            </span>
+                                            }}>{i + 1}</span>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {item.name}
@@ -302,15 +388,79 @@ export default function AnalyticsDashboard() {
                             </>
                         )}
                     </div>
+
+                    {/* Table Performance */}
+                    <div className="card" style={{ padding: 20 }}>
+                        {sectionTitle('Table Performance')}
+                        {tablePerf.length === 0 ? emptyState('No table data yet') : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {tablePerf.slice(0, 8).map((t, i) => (
+                                    <div key={t.table_id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px', borderRadius: 6 }}>
+                                        <span style={{
+                                            width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: 12, fontWeight: 700,
+                                            background: i < 3 ? 'var(--saffron-light)' : 'var(--stone-100)',
+                                            color: i < 3 ? 'var(--saffron-dark)' : 'var(--text-muted)',
+                                        }}>{i + 1}</span>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>Table {t.table_number}</p>
+                                            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.total_orders} orders</p>
+                                        </div>
+                                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                            ₹{t.total_revenue.toLocaleString('en-IN')}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
+
+                {/* Customer Insights (owner only) */}
+                {isOwner && customerInsights && (
+                    <div className="card" style={{ padding: 20 }}>
+                        {sectionTitle('Customer Insights')}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginBottom: 20 }}>
+                            <div style={{ textAlign: 'center', padding: '12px 16px', background: 'var(--stone-50)', borderRadius: 10 }}>
+                                <p style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{customerInsights.unique_customers}</p>
+                                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Total Customers</p>
+                            </div>
+                            <div style={{ textAlign: 'center', padding: '12px 16px', background: 'var(--stone-50)', borderRadius: 10 }}>
+                                <p style={{ fontSize: 28, fontWeight: 700, color: '#059669' }}>{customerInsights.new_customers}</p>
+                                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>New</p>
+                            </div>
+                            <div style={{ textAlign: 'center', padding: '12px 16px', background: 'var(--stone-50)', borderRadius: 10 }}>
+                                <p style={{ fontSize: 28, fontWeight: 700, color: '#F59E0B' }}>{customerInsights.returning_customers}</p>
+                                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Returning</p>
+                            </div>
+                        </div>
+                        {customerInsights.top_customers?.length > 0 && (
+                            <>
+                                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Top Customers</p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {customerInsights.top_customers.map((c, i) => (
+                                        <div key={c.customer_id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 8px', borderRadius: 6 }}>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', minWidth: 20 }}>#{i + 1}</span>
+                                            <div style={{ flex: 1 }}>
+                                                <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{c.name}</p>
+                                                <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{c.phone_masked}</p>
+                                            </div>
+                                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.order_count} orders</span>
+                                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>₹{c.total_spent.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {/* Live Orders */}
                 <div className="table-wrapper">
                     <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div>
-                            <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>
-                                Live Orders
-                            </h2>
+                            <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>Live Orders</h2>
                             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Real-time view of active orders</p>
                         </div>
                         <span className={`live-pill${isConnected ? '' : ' offline'}`}>

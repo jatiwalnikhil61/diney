@@ -4,12 +4,12 @@ const ThemeContext = createContext(null)
 
 export function ThemeProvider({ children }) {
     const [theme, setTheme] = useState(() => {
-        return sessionStorage.getItem('diney-theme') || 'light'
+        try { return sessionStorage.getItem('diney-theme') || 'light' } catch { return 'light' }
     })
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme)
-        sessionStorage.setItem('diney-theme', theme)
+        try { sessionStorage.setItem('diney-theme', theme) } catch { /* ignore */ }
     }, [theme])
 
     const toggleTheme = () => {

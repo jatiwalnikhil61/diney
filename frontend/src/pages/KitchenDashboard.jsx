@@ -9,15 +9,18 @@ import OrderCard from '../components/OrderCard'
 // Tiny base64 ding sound
 const DING_SOUND = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGczGjqIr9TJdUwvQG2Yvb6CUjQ4YJGztIxdRTtfkK+0i19GPGCQr7SLX0Y8YJCvtItfRjxgkK+0i19GO1+Pr7OMYEU+YJa3wpVmQD5gmbfCl2dEQGGbucifakg/YJm5xZdmQD5gmbnFl2Y/PV+YuMOUZEA+YZq5xJVlQD9imrrElWVAP2KausKTY0BAY5u7wpNjQEBjm7u/kGBBQmWdvL+QYEFCZZS1uIxeQ0NlnLzAkWFBQmWdvMCRYUFCZZ28v5BgQUJlnby/kGBBQmWcvL6PX0FDZZ28v5BgQkNmnry+'
 const playDing = () => {
-    try { new Audio(DING_SOUND).play() } catch { }
+    try { new Audio(DING_SOUND).play() } catch { /* ignore */ }
 }
 
 
 export default function KitchenDashboard() {
     const [orders, setOrders] = useState([])
     const [highlightId, setHighlightId] = useState(null)
+    const [confirmAction, setConfirmAction] = useState(null) // { type: 'cancel'|'remove', order }
+    const [actionLoading, setActionLoading] = useState(false)
     const { socket, isConnected } = useSocket()
-    const { effectiveRestaurantId } = useAuth()
+    const { effectiveRestaurantId, role } = useAuth()
+    const isOwner = role === 'OWNER'
     const { isDark } = useTheme()
     const ordersRef = useRef(orders)
     ordersRef.current = orders
@@ -84,6 +87,22 @@ export default function KitchenDashboard() {
         }
     }
 
+    const executeAction = async () => {
+        if (!confirmAction) return
+        setActionLoading(true)
+        const { type, order } = confirmAction
+        try {
+            await api.post(`/api/orders/${order.id}/${type}`)
+            toast.success(type === 'cancel' ? 'Order cancelled' : 'Order removed')
+            setOrders(prev => prev.filter(o => o.id !== order.id))
+            setConfirmAction(null)
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Action failed')
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
     const newOrders = orders.filter(o => o.status === 'PLACED' || o.status === 'CONFIRMED')
     const preparing = orders.filter(o => o.status === 'PREPARING')
     const ready = orders.filter(o => o.status === 'READY')
@@ -120,18 +139,67 @@ export default function KitchenDashboard() {
                                 <p style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>No orders</p>
                             )}
                             {col.items.map(order => (
-                                <OrderCard
-                                    key={order.id}
-                                    order={order}
-                                    actionLabel={col.actionLabel}
-                                    onAction={col.onAction}
-                                    highlight={highlightId === order.id}
-                                />
+                                <div key={order.id}>
+                                    <OrderCard
+                                        order={order}
+                                        actionLabel={col.actionLabel}
+                                        onAction={col.onAction}
+                                        highlight={highlightId === order.id}
+                                    />
+                                    {isOwner && (
+                                        <div style={{ display: 'flex', gap: 6, marginTop: 4, paddingLeft: 2 }}>
+                                            <button
+                                                onClick={() => setConfirmAction({ type: 'cancel', order })}
+                                                style={{ fontSize: 11, color: '#DC2626', background: 'none', border: '1px solid #FCA5A5', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => setConfirmAction({ type: 'remove', order })}
+                                                style={{ fontSize: 11, color: '#6B7280', background: 'none', border: '1px solid #D1D5DB', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     </div>
                 ))}
             </div>
+
+            {confirmAction && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setConfirmAction(null)} />
+                    <div className="card" style={{ position: 'relative', width: '100%', maxWidth: 380, padding: 24, borderRadius: 14, boxShadow: 'var(--shadow-xl)' }}>
+                        <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+                            {confirmAction.type === 'cancel' ? 'Cancel Order?' : 'Remove Order?'}
+                        </h2>
+                        <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 4 }}>
+                            Table {confirmAction.order.table_number}
+                        </p>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+                            {confirmAction.type === 'cancel'
+                                ? 'The customer will see their order as cancelled.'
+                                : 'This order will be hidden from all views.'}
+                        </p>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => setConfirmAction(null)} className="btn btn-secondary" style={{ flex: 1 }}>
+                                Keep Order
+                            </button>
+                            <button
+                                onClick={executeAction}
+                                disabled={actionLoading}
+                                className="btn btn-primary"
+                                style={{ flex: 1, background: confirmAction.type === 'cancel' ? '#DC2626' : '#6B7280', borderColor: confirmAction.type === 'cancel' ? '#DC2626' : '#6B7280' }}
+                            >
+                                {actionLoading ? 'Processing...' : confirmAction.type === 'cancel' ? 'Cancel Order' : 'Remove'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
